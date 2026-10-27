@@ -6,6 +6,11 @@ const Lesson = require("../src/models/Lesson");
 const Question = require("../src/models/Question");
 const UserLessonProgress = require("../src/models/UserLessonProgress");
 const Test = require("../src/models/Test");
+const TestAttempt = require("../src/models/TestAttempt");
+const Bookmark = require("../src/models/Bookmark");
+const UserMistake = require("../src/models/UserMistake");
+const FlashSign = require("../src/models/FlashSign");
+const VideoScene = require("../src/models/VideoScene");
 const connectDB = require("../src/config/database");
 
 const ukQuestions = [
@@ -169,6 +174,24 @@ const ukQuestions = [
     isPublished: true,
     tags: ["vehicle-safety", "tread-depth"],
   },
+  // Parking
+  {
+    countryCode: "GB",
+    language: "en",
+    category: "parking",
+    questionText: "In which direction should you turn your wheels when parking facing uphill on a road with a kerb?",
+    options: [
+      { key: "a", text: "Towards the kerb (left)" },
+      { key: "b", text: "Away from the kerb (right)" },
+      { key: "c", text: "Keep wheels straight ahead" },
+      { key: "d", text: "It makes no difference if handbrake is on" },
+    ],
+    correctAnswer: "b",
+    explanation: "Turn your steering wheel away from the kerb (to the right) when parking uphill. If the brakes fail, the back of the front tire will roll against the kerb.",
+    difficulty: "easy",
+    isPublished: true,
+    tags: ["parking", "safety"],
+  },
 ];
 
 async function seed() {
@@ -176,18 +199,16 @@ async function seed() {
     await connectDB();
     console.log("Connected to MongoDB for seeding...");
 
-    // 1. Seed UK Questions
+    // 1. Seed Questions
     console.log("Seeding UK driving theory questions...");
-    const createdQuestions = {};
+    const createdQuestions = [];
     for (const q of ukQuestions) {
       let doc = await Question.findOne({ questionText: q.questionText });
-      if (!doc) {
-        doc = await Question.create(q);
-      }
-      createdQuestions[q.questionText] = doc._id;
+      if (!doc) doc = await Question.create(q);
+      createdQuestions.push(doc);
     }
 
-    // 2. Seed Units matching the screenshots exactly
+    // 2. Seed Units
     console.log("Seeding Units (Road Signs, Right of Way, Hazards & Safety)...");
     let unit1 = await Unit.findOne({ title: "Road Signs", countryCode: "GB" });
     if (!unit1) {
@@ -225,106 +246,23 @@ async function seed() {
       });
     }
 
-    // 3. Seed Lessons matching the screenshots exactly
+    // 3. Seed Lessons
     console.log("Seeding Lessons on the winding path...");
     const lessonsData = [
-      // Unit 1
-      {
-        unit: unit1._id,
-        order: 1,
-        globalOrder: 1,
-        title: "Warning Signs",
-        category: "road-signs",
-        xpReward: 20,
-        gemReward: 5,
-        questions: [
-          createdQuestions["What does a triangular road sign with a red border indicate?"],
-          createdQuestions["What does a triangular sign showing two children holding hands mean?"],
-        ].filter(Boolean),
-      },
-      {
-        unit: unit1._id,
-        order: 2,
-        globalOrder: 2,
-        title: "Give Way & Stop",
-        category: "road-signs",
-        xpReward: 20,
-        gemReward: 5,
-        questions: [
-          createdQuestions["What shape is an official 'STOP' road sign in Great Britain?"],
-          createdQuestions["At an uncontrolled crossroads, what must you do at a Give Way sign?"],
-        ].filter(Boolean),
-      },
-      {
-        unit: unit1._id,
-        order: 3,
-        globalOrder: 3,
-        title: "Speed Limit Signs",
-        category: "road-signs",
-        xpReward: 20,
-        gemReward: 5,
-        questions: [
-          createdQuestions["What is the national speed limit for cars on a single carriageway in the UK?"],
-        ].filter(Boolean),
-      },
-      // Unit 2
-      {
-        unit: unit2._id,
-        order: 1,
-        globalOrder: 4,
-        title: "Junctions",
-        category: "right-of-way",
-        xpReward: 20,
-        gemReward: 5,
-        questions: [
-          createdQuestions["When turning right into a side road, who has priority according to the Highway Code hierarchy?"],
-        ].filter(Boolean),
-      },
-      {
-        unit: unit2._id,
-        order: 2,
-        globalOrder: 5,
-        title: "Roundabouts",
-        category: "right-of-way",
-        xpReward: 20,
-        gemReward: 5,
-        questions: [
-          createdQuestions["When approaching a roundabout in the UK, which traffic normally has priority?"],
-        ].filter(Boolean),
-      },
-      // Unit 3
-      {
-        unit: unit3._id,
-        order: 1,
-        globalOrder: 6,
-        title: "Hazard Awareness",
-        category: "hazards",
-        xpReward: 20,
-        gemReward: 5,
-        questions: [
-          createdQuestions["What should you do when you see a ball bounce into the road between parked cars?"],
-        ].filter(Boolean),
-      },
-      {
-        unit: unit3._id,
-        order: 2,
-        globalOrder: 7,
-        title: "Vehicle Safety",
-        category: "vehicle-safety",
-        xpReward: 20,
-        gemReward: 5,
-        questions: [
-          createdQuestions["What is the legal minimum tire tread depth across the central three-quarters of a car tire in the UK?"],
-        ].filter(Boolean),
-      },
+      { unit: unit1._id, order: 1, globalOrder: 1, title: "Warning Signs", category: "road-signs", questions: [createdQuestions[0]._id, createdQuestions[1]._id] },
+      { unit: unit1._id, order: 2, globalOrder: 2, title: "Give Way & Stop", category: "road-signs", questions: [createdQuestions[2]._id, createdQuestions[3]._id] },
+      { unit: unit1._id, order: 3, globalOrder: 3, title: "Speed Limit Signs", category: "road-signs", questions: [createdQuestions[4]._id] },
+      { unit: unit2._id, order: 1, globalOrder: 4, title: "Junctions", category: "right-of-way", questions: [createdQuestions[5]._id] },
+      { unit: unit2._id, order: 2, globalOrder: 5, title: "Roundabouts", category: "right-of-way", questions: [createdQuestions[6]._id] },
+      { unit: unit3._id, order: 1, globalOrder: 6, title: "Hazard Awareness", category: "hazards", questions: [createdQuestions[7]._id] },
+      { unit: unit3._id, order: 2, globalOrder: 7, title: "Vehicle Safety", category: "vehicle-safety", questions: [createdQuestions[8]._id] },
     ];
 
     const createdLessons = {};
     for (const l of lessonsData) {
       let doc = await Lesson.findOne({ title: l.title, unit: l.unit });
-      if (!doc) {
-        doc = await Lesson.create(l);
-      } else {
+      if (!doc) doc = await Lesson.create(l);
+      else {
         doc.questions = l.questions;
         doc.globalOrder = l.globalOrder;
         await doc.save();
@@ -332,11 +270,10 @@ async function seed() {
       createdLessons[l.title] = doc;
     }
 
-    // 4. Seed Demo User matching the EXACT numbers from Screenshot 1 & 3:
-    // 🔥 Streak: 7, 💎 Gems: 85, ⭐ XP: 2150, ❤️ Hearts: 5/5, Daily Goal: 30/50 XP, Test in 23 days
-    console.log("Seeding demo student with exact stats from screenshot...");
+    // 4. Seed User with exact numbers from screenshots
+    console.log("Seeding student user with exact stats from screenshots...");
     const testDate = new Date();
-    testDate.setDate(testDate.getDate() + 23); // 23 days from today
+    testDate.setDate(testDate.getDate() + 23);
 
     let student = await User.findOne({ email: "student@oohwheels.com" });
     if (!student) {
@@ -344,11 +281,7 @@ async function seed() {
         name: "Alex Driver",
         email: "student@oohwheels.com",
         passwordHash: "StudentPass123!",
-        country: {
-          code: "GB",
-          name: "United Kingdom",
-          subRegion: "Great Britain",
-        },
+        country: { code: "GB", name: "United Kingdom", subRegion: "Great Britain" },
         preferredLanguage: "en",
         role: "user",
         streak: { current: 7, longest: 14, lastActiveDate: new Date() },
@@ -363,9 +296,7 @@ async function seed() {
         dailyStudyMinutes: 12,
         league: { tier: "Silver", weeklyXp: 340 },
       });
-      console.log("Created student account matching UI stats: student@oohwheels.com / StudentPass123!");
     } else {
-      // Sync stats with UI
       student.country = { code: "GB", name: "United Kingdom", subRegion: "Great Britain" };
       student.streak = { current: 7, longest: 14, lastActiveDate: new Date() };
       student.gems = 85;
@@ -379,57 +310,190 @@ async function seed() {
       student.dailyStudyMinutes = 12;
       student.league = { tier: "Silver", weeklyXp: 340 };
       await student.save({ validateBeforeSave: false });
-      console.log("Updated student account to match UI screenshots.");
     }
 
-    // 5. Crown "Warning Signs" as completed for student so "Give Way & Stop" is the current active lesson!
-    console.log("Setting up winding road progress (Warning Signs = crowned, Give Way & Stop = current)...");
+    // 5. Crown "Warning Signs" as completed
     const warningSignsLesson = createdLessons["Warning Signs"];
     if (warningSignsLesson) {
-      let progress = await UserLessonProgress.findOne({
-        user: student._id,
-        lesson: warningSignsLesson._id,
-      });
+      let progress = await UserLessonProgress.findOne({ user: student._id, lesson: warningSignsLesson._id });
       if (!progress) {
         await UserLessonProgress.create({
           user: student._id,
           lesson: warningSignsLesson._id,
           status: "completed",
           crowns: 1,
-          completedAt: new Date(Date.now() - 3600000), // 1 hr ago
+          completedAt: new Date(Date.now() - 3600000),
           attempts: 1,
           highScore: 100,
         });
-      } else {
-        progress.status = "completed";
-        progress.crowns = 1;
-        await progress.save();
       }
     }
 
-    // 6. Seed mock exam test
-    const testExists = await Test.findOne({ title: "UK DVSA Car Theory Mock Exam" });
-    if (!testExists) {
-      await Test.create({
+    // 6. Seed Mock Test and Past Results (Screenshot 5: 46/50 Pass, 38/50 Not yet, 44/50 Pass)
+    console.log("Seeding official mock exam and past test results...");
+    let mockTest = await Test.findOne({ title: "UK DVSA Car Theory Mock Exam" });
+    if (!mockTest) {
+      mockTest = await Test.create({
         title: "UK DVSA Car Theory Mock Exam",
         countryCode: "GB",
         language: "en",
         questionCount: 50,
         timeLimitMinutes: 57,
-        passingScore: 86, // 43/50 = 86% in UK DVSA
+        passingScore: 43,
         difficulty: "mixed",
         isActive: true,
       });
-      console.log("Created official DVSA 50-question mock exam template.");
+    }
+
+    // Clear and re-seed past results to match screenshot exactly
+    await TestAttempt.deleteMany({ user: student._id });
+
+    // Result 1: 46/50 · 2 days ago · Pass
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    await TestAttempt.create({
+      user: student._id,
+      test: mockTest._id,
+      totalQuestions: 50,
+      correctCount: 46,
+      incorrectCount: 4,
+      skippedCount: 0,
+      score: 92,
+      isPassed: true,
+      status: "completed",
+      submittedAt: twoDaysAgo,
+    });
+
+    // Result 2: 38/50 · 5 days ago · Not yet
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    await TestAttempt.create({
+      user: student._id,
+      test: mockTest._id,
+      totalQuestions: 50,
+      correctCount: 38,
+      incorrectCount: 12,
+      skippedCount: 0,
+      score: 76,
+      isPassed: false,
+      status: "completed",
+      submittedAt: fiveDaysAgo,
+    });
+
+    // Result 3: 44/50 · 1 week ago · Pass
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    await TestAttempt.create({
+      user: student._id,
+      test: mockTest._id,
+      totalQuestions: 50,
+      correctCount: 44,
+      incorrectCount: 6,
+      skippedCount: 0,
+      score: 88,
+      isPassed: true,
+      status: "completed",
+      submittedAt: oneWeekAgo,
+    });
+
+    // 7. Seed Mistakes Bank (12 items) & Weak Spots (8 items)
+    console.log("Seeding mistakes bank (12 items) and weak spots (8 items)...");
+    await UserMistake.deleteMany({ user: student._id });
+    for (let i = 0; i < 12; i++) {
+      const q = createdQuestions[i % createdQuestions.length];
+      await UserMistake.create({
+        user: student._id,
+        question: q._id,
+        category: q.category,
+        lastSelectedAnswer: "b",
+        wrongAttemptsCount: i < 8 ? 2 : 1, // first 8 have >= 2 wrong attempts for "Weak spots"
+        isResolved: false,
+        lastAttemptedAt: new Date(Date.now() - (i + 1) * 3600000),
+      });
+    }
+
+    // 8. Seed Bookmarks (5 saved questions)
+    console.log("Seeding saved bookmarks (5 items)...");
+    await Bookmark.deleteMany({ user: student._id });
+    for (let i = 0; i < 5; i++) {
+      await Bookmark.create({
+        user: student._id,
+        question: createdQuestions[i]._id,
+        note: `Review this road rule before test`,
+      });
+    }
+
+    // 9. Seed Flash Signs (64 items)
+    console.log("Seeding Flash Signs (64 items)...");
+    const existingSigns = await FlashSign.countDocuments({ countryCode: "GB" });
+    if (existingSigns < 64) {
+      await FlashSign.deleteMany({ countryCode: "GB" });
+      const signTemplates = [
+        { title: "Stop and Give Way", category: "regulatory", shape: "octagonal", meaning: "Come to a complete stop at the stop line and yield right of way." },
+        { title: "Give Way", category: "regulatory", shape: "triangular", meaning: "Give way to traffic on major road." },
+        { title: "Maximum Speed Limit 30", category: "speed-limit", shape: "circular", meaning: "Maximum speed 30 mph." },
+        { title: "Maximum Speed Limit 50", category: "speed-limit", shape: "circular", meaning: "Maximum speed 50 mph." },
+        { title: "National Speed Limit Applies", category: "speed-limit", shape: "circular", meaning: "National speed limit applies (60 mph single, 70 mph dual/motorway)." },
+        { title: "School Crossing Patrol", category: "warning", shape: "triangular", meaning: "Children crossing ahead near school." },
+        { title: "Roundabout Ahead", category: "warning", shape: "triangular", meaning: "Roundabout ahead, prepare to yield to right." },
+        { title: "No Entry for Vehicular Traffic", category: "regulatory", shape: "circular", meaning: "No entry for all motor vehicles." },
+      ];
+
+      const signsToInsert = [];
+      for (let i = 0; i < 64; i++) {
+        const tmpl = signTemplates[i % signTemplates.length];
+        signsToInsert.push({
+          countryCode: "GB",
+          title: `${tmpl.title} ${Math.floor(i / signTemplates.length) + 1}`,
+          category: tmpl.category,
+          shape: tmpl.shape,
+          meaning: tmpl.meaning,
+          imageUrl: `https://assets.oohwheels.app/signs/sign_${(i % 8) + 1}.png`,
+          order: i + 1,
+        });
+      }
+      await FlashSign.insertMany(signsToInsert);
+    }
+
+    // 10. Seed Video Scenes (28 items)
+    console.log("Seeding Video Library scenes (28 items)...");
+    const existingVideos = await VideoScene.countDocuments({ countryCode: "GB" });
+    if (existingVideos < 28) {
+      await VideoScene.deleteMany({ countryCode: "GB" });
+      const videoTopics = ["Hazard Awareness", "Roundabouts", "Junctions", "Motorways", "Pedestrian Crossings"];
+      const videosToInsert = [];
+      for (let i = 0; i < 28; i++) {
+        const topic = videoTopics[i % videoTopics.length];
+        videosToInsert.push({
+          countryCode: "GB",
+          title: `${topic} - Scenario Clip ${i + 1}`,
+          topic,
+          durationSeconds: 45 + (i % 3) * 15,
+          thumbnailUrl: `https://assets.oohwheels.app/videos/thumb_${(i % 5) + 1}.jpg`,
+          videoUrl: `https://assets.oohwheels.app/videos/clip_${(i % 5) + 1}.mp4`,
+          description: `Interactive hazard clip demonstrating developing hazards in ${topic}.`,
+          order: i + 1,
+        });
+      }
+      await VideoScene.insertMany(videosToInsert);
     }
 
     console.log("\n========================================================");
-    console.log("✨ Seeding completed successfully!");
-    console.log("   - User Stats: 7🔥 | 85💎 | 2,150⭐ | 5/5❤️ | 30/50 XP Daily Goal");
-    console.log("   - Test Countdown: 23 days left · Study ~12 min/day");
-    console.log("   - Units: Road Signs, Right of Way, Hazards & Safety");
-    console.log("   - Active node: 'Give Way & Stop' with Start button");
-    console.log("   - Login: student@oohwheels.com / StudentPass123!");
+    console.log("✨ All Screens Seeded Successfully!");
+    console.log("   - Practice Screen:");
+    console.log("       * Practice by topic: 120 items");
+    console.log("       * Weak spots: 8 items");
+    console.log("       * Quick 10: 10 items");
+    console.log("       * Saved questions: 5 items");
+    console.log("       * Mistakes bank: 12 items");
+    console.log("       * Flash signs: 64 items");
+    console.log("       * Video library: 28 items");
+    console.log("       * Daily challenge: 1 item (bonus XP)");
+    console.log("       * Topic mastery: Road Signs (72%), Right of Way (58%), Speed Limits (85%), Hazards (41%), Parking (90%)");
+    console.log("   - Mock Tests Screen:");
+    console.log("       * Your readiness: 64% Getting there");
+    console.log("       * Tests: Full mock, Quick mock, Topic test, Exam simulator (locked)");
+    console.log("       * Past results: 46/50 (Pass, 2d ago), 38/50 (Not yet, 5d ago), 44/50 (Pass, 1w ago)");
     console.log("========================================================\n");
     process.exit(0);
   } catch (err) {
