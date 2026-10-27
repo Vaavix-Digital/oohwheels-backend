@@ -98,13 +98,66 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 12,
     },
+    avatar: {
+      type: String,
+      default: "red-car",
+      // "red-car", "fox", "tiger", "cat", "unicorn", "lion", "panda", "rabbit"
+    },
+    badgesCount: {
+      type: Number,
+      default: 2,
+    },
+    streakFreezes: {
+      type: Number,
+      default: 0,
+    },
+    inventory: [String], // purchased shop items e.g. ["racer-outfit", "night-theme"]
+    activeTheme: {
+      type: String,
+      default: "default",
+    },
+    activeOutfit: {
+      type: String,
+      default: "standard",
+    },
+    dailyQuests: {
+      earnXp: {
+        title: { type: String, default: "Earn 50 XP" },
+        target: { type: Number, default: 50 },
+        current: { type: Number, default: 30 },
+        rewardXp: { type: Number, default: 20 },
+        completed: { type: Boolean, default: false },
+      },
+      correctInRow: {
+        title: { type: String, default: "Get 5 correct in a row" },
+        target: { type: Number, default: 5 },
+        current: { type: Number, default: 3 },
+        rewardXp: { type: Number, default: 15 },
+        completed: { type: Boolean, default: false },
+      },
+      watchVideo: {
+        title: { type: String, default: "Watch 1 video scene" },
+        target: { type: Number, default: 1 },
+        current: { type: Number, default: 0 },
+        rewardXp: { type: Number, default: 10 },
+        completed: { type: Boolean, default: false },
+      },
+    },
+    achievements: {
+      streak7Day: { title: { type: String, default: "7-Day Streak" }, unlocked: { type: Boolean, default: true }, progress: { type: Number, default: 7 }, target: { type: Number, default: 7 }, icon: { type: String, default: "flame" } },
+      signs100: { title: { type: String, default: "100 Signs Learned" }, unlocked: { type: Boolean, default: true }, progress: { type: Number, default: 100 }, target: { type: Number, default: 100 }, icon: { type: String, default: "barrier" } },
+      perfectMock: { title: { type: String, default: "Perfect Mock" }, unlocked: { type: Boolean, default: false }, progress: { type: Number, default: 1 }, target: { type: Number, default: 2 }, icon: { type: String, default: "target" } },
+      nightOwl: { title: { type: String, default: "Night Owl" }, unlocked: { type: Boolean, default: false }, progress: { type: Number, default: 1 }, target: { type: Number, default: 4 }, icon: { type: String, default: "owl" } },
+      videoMaster: { title: { type: String, default: "Video Master" }, unlocked: { type: Boolean, default: false }, progress: { type: Number, default: 8 }, target: { type: Number, default: 28 }, icon: { type: String, default: "clapperboard" } },
+      crowned: { title: { type: String, default: "Crowned" }, unlocked: { type: Boolean, default: true }, progress: { type: Number, default: 1 }, target: { type: Number, default: 1 }, icon: { type: String, default: "crown" } },
+    },
     league: {
       tier: {
         type: String,
         enum: ["Bronze", "Silver", "Gold", "Ruby", "Diamond"],
-        default: "Bronze",
+        default: "Gold",
       },
-      weeklyXp: { type: Number, default: 0 },
+      weeklyXp: { type: Number, default: 2150 },
     },
     passwordResetToken: {
       type: String,
@@ -198,10 +251,16 @@ userSchema.methods.toPublicJSON = function () {
     id: this._id,
     name: this.name,
     email: this.email,
+    avatar: this.avatar || "red-car",
+    badgesCount: this.badgesCount || 2,
     country: this.country,
     preferredLanguage: this.preferredLanguage,
     role: this.role,
     stats: this.getGamificationStats(),
+    dailyQuests: this.dailyQuests,
+    achievements: this.achievements,
+    activeTheme: this.activeTheme,
+    activeOutfit: this.activeOutfit,
     createdAt: this.createdAt,
   };
 };

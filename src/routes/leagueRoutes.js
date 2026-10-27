@@ -4,6 +4,8 @@ const leagueController = require("../controllers/leagueController");
 const { protect } = require("../middleware/authMiddleware");
 
 router.use(protect);
+
 router.get("/", leagueController.getLeaderboard);
+router.post("/duel/:friendId", leagueController.startDuel);
 
 module.exports = router;

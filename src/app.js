@@ -12,6 +12,7 @@ const progressRoutes = require("./routes/progressRoutes");
 const learnRoutes = require("./routes/learnRoutes");
 const leagueRoutes = require("./routes/leagueRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const shopRoutes = require("./routes/shopRoutes");
 const { bookmarkRouter } = require("./routes/progressRoutes");
 const errorMiddleware = require("./middleware/errorMiddleware");
 
@@ -71,6 +72,7 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/learn", learnRoutes);
 app.use("/api/v1/league", leagueRoutes);
 app.use("/api/v1/subscription", subscriptionRoutes);
+app.use("/api/v1/shop", shopRoutes);
 app.use("/api/v1/questions", questionRoutes);
 app.use("/api/v1/tests", testRoutes);
 app.use("/api/v1/practice", practiceRoutes);

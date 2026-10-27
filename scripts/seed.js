@@ -278,9 +278,10 @@ async function seed() {
     let student = await User.findOne({ email: "student@oohwheels.com" });
     if (!student) {
       student = await User.create({
-        name: "Alex Driver",
+        name: "Learner Driver",
         email: "student@oohwheels.com",
         passwordHash: "StudentPass123!",
+        avatar: "red-car",
         country: { code: "GB", name: "United Kingdom", subRegion: "Great Britain" },
         preferredLanguage: "en",
         role: "user",
@@ -294,9 +295,12 @@ async function seed() {
         isPremium: false,
         testDate,
         dailyStudyMinutes: 12,
-        league: { tier: "Silver", weeklyXp: 340 },
+        badgesCount: 2,
+        league: { tier: "Gold", weeklyXp: 2150 },
       });
     } else {
+      student.name = "Learner Driver";
+      student.avatar = "red-car";
       student.country = { code: "GB", name: "United Kingdom", subRegion: "Great Britain" };
       student.streak = { current: 7, longest: 14, lastActiveDate: new Date() };
       student.gems = 85;
@@ -308,9 +312,66 @@ async function seed() {
       student.isPremium = false;
       student.testDate = testDate;
       student.dailyStudyMinutes = 12;
-      student.league = { tier: "Silver", weeklyXp: 340 };
+      student.badgesCount = 2;
+      student.league = { tier: "Gold", weeklyXp: 2150 };
       await student.save({ validateBeforeSave: false });
     }
+
+    // 4b. Seed League Competitors and Friends (Screenshots 1 & 2)
+    console.log("Seeding league competitors and friends list...");
+    const competitorsData = [
+      { name: "Aisha K.", email: "aisha@oohwheels.com", avatar: "fox", weeklyXp: 1840, streak: 12, isFriend: true },
+      { name: "Ravi P.", email: "ravi@oohwheels.com", avatar: "tiger", weeklyXp: 1320, streak: 5, isFriend: true },
+      { name: "Layla H.", email: "layla@oohwheels.com", avatar: "cat", weeklyXp: 1190, streak: 9, isFriend: false },
+      { name: "Sara M.", email: "sara@oohwheels.com", avatar: "unicorn", weeklyXp: 980, streak: 0, isFriend: true },
+      { name: "Omar N.", email: "omar@oohwheels.com", avatar: "lion", weeklyXp: 870, streak: 2, isFriend: false },
+      { name: "Tom B.", email: "tom@oohwheels.com", avatar: "panda", weeklyXp: 760, streak: 3, isFriend: true },
+      { name: "Nadia F.", email: "nadia@oohwheels.com", avatar: "rabbit", weeklyXp: 540, streak: 1, isFriend: false },
+    ];
+
+    await FriendRelationship.deleteMany({ user: student._id });
+
+    for (const comp of competitorsData) {
+      let compUser = await User.findOne({ email: comp.email });
+      if (!compUser) {
+        compUser = await User.create({
+          name: comp.name,
+          email: comp.email,
+          passwordHash: "Competitor123!",
+          avatar: comp.avatar,
+          country: { code: "GB", name: "United Kingdom", subRegion: "Great Britain" },
+          streak: { current: comp.streak, longest: comp.streak, lastActiveDate: new Date() },
+          gems: 50,
+          xp: comp.weeklyXp,
+          league: { tier: "Gold", weeklyXp: comp.weeklyXp },
+        });
+      } else {
+        compUser.name = comp.name;
+        compUser.avatar = comp.avatar;
+        compUser.streak.current = comp.streak;
+        compUser.league = { tier: "Gold", weeklyXp: comp.weeklyXp };
+        await compUser.save({ validateBeforeSave: false });
+      }
+
+      if (comp.isFriend) {
+        await FriendRelationship.create({
+          user: student._id,
+          friend: compUser._id,
+          status: "accepted",
+        });
+      }
+    }
+
+    // 4c. Seed Shop Items (Screenshot 5)
+    console.log("Seeding shop items (Streak Freeze, Hearts Refill, Racer Outfit, Night Theme)...");
+    const ShopItem = require("../src/models/ShopItem");
+    await ShopItem.deleteMany({});
+    await ShopItem.insertMany([
+      { key: "streak-freeze", title: "Streak Freeze", description: "Protect your streak for a day off", costGems: 50, icon: "ice-cube", isPro: false, order: 1 },
+      { key: "hearts-refill", title: "Hearts Refill", description: "Refill all 5 hearts instantly", costGems: 40, icon: "heart", isPro: false, order: 2 },
+      { key: "racer-outfit", title: "Racer Outfit", description: "Dress Whizzy in a racing helmet", costGems: 120, icon: "race-car", isPro: true, order: 3 },
+      { key: "night-theme", title: "Night Theme", description: "A starry-night road skin", costGems: 90, icon: "crescent-moon", isPro: true, order: 4 },
+    ]);
 
     // 5. Crown "Warning Signs" as completed
     const warningSignsLesson = createdLessons["Warning Signs"];

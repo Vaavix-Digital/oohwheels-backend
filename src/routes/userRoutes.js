@@ -7,6 +7,7 @@ const { protect, restrictTo } = require("../middleware/authMiddleware");
 router.use(protect);
 
 router.get("/me", userController.getMe);
+router.get("/me/profile-screen", userController.getProfileScreen);
 router.patch("/me", userController.updateMe);
 router.delete("/me", userController.deleteMe);
 
