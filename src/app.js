@@ -9,6 +9,9 @@ const questionRoutes = require("./routes/questionRoutes");
 const testRoutes = require("./routes/testRoutes");
 const practiceRoutes = require("./routes/practiceRoutes");
 const progressRoutes = require("./routes/progressRoutes");
+const learnRoutes = require("./routes/learnRoutes");
+const leagueRoutes = require("./routes/leagueRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const { bookmarkRouter } = require("./routes/progressRoutes");
 const errorMiddleware = require("./middleware/errorMiddleware");
 
@@ -65,6 +68,9 @@ app.get("/api/v1/health", (req, res) => {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/learn", learnRoutes);
+app.use("/api/v1/league", leagueRoutes);
+app.use("/api/v1/subscription", subscriptionRoutes);
 app.use("/api/v1/questions", questionRoutes);
 app.use("/api/v1/tests", testRoutes);
 app.use("/api/v1/practice", practiceRoutes);
