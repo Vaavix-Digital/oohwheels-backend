@@ -7,9 +7,8 @@ const answerSchema = new mongoose.Schema(
       ref: "Question",
       required: true,
     },
-    // Snapshot question text so history is preserved even if question changes
     questionSnapshot: { type: String },
-    selectedAnswer: { type: String }, // null if skipped
+    selectedAnswer: { type: String }, // null if unanswered
     correctAnswer: { type: String, required: true },
     isCorrect: { type: Boolean, required: true },
     timeTakenSeconds: { type: Number, default: 0 },
@@ -28,10 +27,27 @@ const testAttemptSchema = new mongoose.Schema(
     test: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Test",
-      required: true,
     },
-    // Embedded question IDs selected for this attempt
+    testType: {
+      type: String,
+      enum: ["full", "quick", "topic", "simulator"],
+      default: "full",
+      index: true,
+    },
+    testTitle: {
+      type: String,
+      default: "Full Mock Test — Great Britain (Car)",
+    },
+    passingScore: {
+      type: Number,
+      default: 43,
+    },
+    // Ordered list of question IDs for the test
     questionIds: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Question" }
+    ],
+    // Flagged questions for review during test (🏳️ Flag button)
+    flaggedQuestionIds: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Question" }
     ],
     answers: [answerSchema],
@@ -46,13 +62,15 @@ const testAttemptSchema = new mongoose.Schema(
       min: 0,
       max: 100,
     },
-    totalQuestions: { type: Number },
-    correctCount: { type: Number },
-    incorrectCount: { type: Number },
-    skippedCount: { type: Number },
+    scoreText: { type: String }, // e.g. "46/50"
+    totalQuestions: { type: Number, default: 50 },
+    correctCount: { type: Number, default: 0 },
+    incorrectCount: { type: Number, default: 0 },
+    skippedCount: { type: Number, default: 0 },
     isPassed: { type: Boolean },
     startedAt: { type: Date, default: Date.now },
     submittedAt: { type: Date },
+    timeLimitMinutes: { type: Number, default: 57 },
     timeLimitEndsAt: { type: Date }, // server-enforced deadline
   },
   { timestamps: true }
