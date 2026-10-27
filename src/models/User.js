@@ -91,6 +91,19 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    subscription: {
+      status: {
+        type: String,
+        enum: ["none", "trialing", "active", "cancelled", "expired"],
+        default: "none",
+      },
+      plan: { type: String, default: "monthly" },
+      price: { type: Number, default: 3.99 },
+      currency: { type: String, default: "USD" },
+      trialEndsAt: { type: Date },
+      currentPeriodEndsAt: { type: Date },
+      cancelAtPeriodEnd: { type: Boolean, default: false },
+    },
     testDate: {
       type: Date, // Scheduled driving test date
     },
