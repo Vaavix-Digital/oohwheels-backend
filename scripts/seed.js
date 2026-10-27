@@ -11,6 +11,7 @@ const Bookmark = require("../src/models/Bookmark");
 const UserMistake = require("../src/models/UserMistake");
 const FlashSign = require("../src/models/FlashSign");
 const VideoScene = require("../src/models/VideoScene");
+const PracticeTopic = require("../src/models/PracticeTopic");
 const connectDB = require("../src/config/database");
 
 const ukQuestions = [
@@ -538,6 +539,141 @@ async function seed() {
       }
       await VideoScene.insertMany(videosToInsert);
     }
+
+    // 10b. Seed All 8 Practice Topics (Images 1 & 2)
+    console.log("Seeding all 8 Practice Topics with key rules and video scenes...");
+    await PracticeTopic.deleteMany({ countryCode: "GB" });
+    const allTopicsData = [
+      {
+        key: "road-signs",
+        name: "Road Signs",
+        countryCode: "GB",
+        totalQuestions: 48,
+        indicatorColor: "#00A3FF",
+        barColor: "#FF8A00",
+        order: 1,
+        keyRule: {
+          tag: "RULE OF THE ROAD",
+          text: "Warning signs are triangular with a red border. They warn you about hazards ahead — like a bend, junction, or crossing.",
+          audioUrl: "https://assets.oohwheels.app/audio/warning-signs-rule.mp3",
+          nextHint: "Animated scene up next",
+        },
+        xpReward: 30,
+      },
+      {
+        key: "right-of-way",
+        name: "Right of Way",
+        countryCode: "GB",
+        totalQuestions: 30,
+        indicatorColor: "#FF8A00",
+        barColor: "#FF8A00",
+        order: 2,
+        keyRule: {
+          tag: "RULE OF THE ROAD",
+          text: "Give way to traffic on major roads, pedestrians crossing at junctions, and vehicles approaching from your right at roundabouts.",
+          audioUrl: "https://assets.oohwheels.app/audio/right-of-way-rule.mp3",
+          nextHint: "Animated scene up next",
+        },
+        xpReward: 30,
+      },
+      {
+        key: "speed-limits",
+        name: "Speed Limits",
+        countryCode: "GB",
+        totalQuestions: 22,
+        indicatorColor: "#2ECC71",
+        barColor: "#2ECC71",
+        order: 3,
+        keyRule: {
+          tag: "RULE OF THE ROAD",
+          text: "A circular sign with a red border indicates a maximum speed limit. Signs with street lights generally indicate a 30 mph limit unless signed otherwise.",
+          audioUrl: "https://assets.oohwheels.app/audio/speed-limits-rule.mp3",
+          nextHint: "Animated scene up next",
+        },
+        xpReward: 30,
+      },
+      {
+        key: "hazards",
+        name: "Hazards",
+        countryCode: "GB",
+        totalQuestions: 18,
+        indicatorColor: "#FF4B4B",
+        barColor: "#FF4B4B",
+        order: 4,
+        keyRule: {
+          tag: "RULE OF THE ROAD",
+          text: "Scan 12 seconds ahead for developing hazards: pedestrian crossings, cyclists, sudden braking cars, and parked vehicle doors opening.",
+          audioUrl: "https://assets.oohwheels.app/audio/hazards-rule.mp3",
+          nextHint: "Animated scene up next",
+        },
+        xpReward: 30,
+      },
+      {
+        key: "parking",
+        name: "Parking",
+        countryCode: "GB",
+        totalQuestions: 14,
+        indicatorColor: "#9B51E0",
+        barColor: "#2ECC71",
+        order: 5,
+        keyRule: {
+          tag: "RULE OF THE ROAD",
+          text: "Never park on double yellow lines or within 10 meters of a junction. When parking uphill against a kerb, turn your front wheels to the right.",
+          audioUrl: "https://assets.oohwheels.app/audio/parking-rule.mp3",
+          nextHint: "Animated scene up next",
+        },
+        xpReward: 30,
+      },
+      {
+        key: "motorways",
+        name: "Motorways",
+        countryCode: "GB",
+        totalQuestions: 9,
+        indicatorColor: "#F2C94C",
+        barColor: "#FF4B4B",
+        order: 6,
+        keyRule: {
+          tag: "RULE OF THE ROAD",
+          text: "Keep left unless overtaking. A red 'X' over a motorway gantry lane means that lane is closed — you must not drive in it.",
+          audioUrl: "https://assets.oohwheels.app/audio/motorways-rule.mp3",
+          nextHint: "Animated scene up next",
+        },
+        xpReward: 30,
+      },
+      {
+        key: "vehicle-safety",
+        name: "Vehicle Safety",
+        countryCode: "GB",
+        totalQuestions: 26,
+        indicatorColor: "#00A3FF",
+        barColor: "#FF8A00",
+        order: 7,
+        keyRule: {
+          tag: "RULE OF THE ROAD",
+          text: "Check tire pressures weekly when cold. Minimum legal tread depth is 1.6 mm across the central three-quarters of the tire breadth.",
+          audioUrl: "https://assets.oohwheels.app/audio/vehicle-safety-rule.mp3",
+          nextHint: "Animated scene up next",
+        },
+        xpReward: 30,
+      },
+      {
+        key: "rules-of-region",
+        name: "Rules of the Region",
+        countryCode: "GB",
+        totalQuestions: 12,
+        indicatorColor: "#FF8A00",
+        barColor: "#FF8A00",
+        order: 8,
+        keyRule: {
+          tag: "RULE OF THE ROAD",
+          text: "Follow regional regulations on clean air zones, bus lanes, congestion charge zones, and smart motorways.",
+          audioUrl: "https://assets.oohwheels.app/audio/rules-region-rule.mp3",
+          nextHint: "Animated scene up next",
+        },
+        xpReward: 30,
+      },
+    ];
+    await PracticeTopic.insertMany(allTopicsData);
 
     console.log("\n========================================================");
     console.log("✨ All Screens Seeded Successfully!");
