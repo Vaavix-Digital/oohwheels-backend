@@ -8,12 +8,14 @@ const { validate, schemas } = require("../middleware/validateMiddleware");
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
+  validate: { ip: false },
   message: { success: false, message: "Too many login attempts. Try again in 15 minutes." },
 });
 
 const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5,
+  validate: { ip: false },
   message: { success: false, message: "Too many requests. Try again in 1 hour." },
 });
 

@@ -27,6 +27,7 @@ const globalLimiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { ip: false },
   message: { success: false, message: "Too many requests. Please slow down." },
 });
 app.use("/api", globalLimiter);

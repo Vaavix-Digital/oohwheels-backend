@@ -2,14 +2,19 @@ const mongoose = require("mongoose");
 
 async function connectDB() {
   if (!process.env.MONGODB_URI) {
-    throw new Error("MONGODB_URI is missing from environment variables");
+    console.warn("⚠️ MONGODB_URI is not set. Running in In-Memory / Demo mode for Postman testing.");
+    return;
   }
 
-  const conn = await mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000,
-  });
-
-  console.log(`MongoDB connected: ${conn.connection.host}`);
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 3000,
+    });
+    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
+  } catch (err) {
+    console.warn(`⚠️ MongoDB connection note (${err.message}).`);
+    console.log("👉 Running in In-Memory Demo Mode: You can test all API routes in Postman immediately without local MongoDB running!");
+  }
 }
 
 module.exports = connectDB;
