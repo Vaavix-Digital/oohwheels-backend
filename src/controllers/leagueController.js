@@ -1,7 +1,7 @@
-const mongoose = require("mongoose");
+const neon = require("../config/neon");
 const mockPractice = require("../utils/mockPracticeStore");
 
-const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
+const isDbConnected = () => neon.isNeonConfigured();
 
 // Default high-fidelity leaderboard data matching UI screenshot exactly
 const defaultPodium = {
@@ -63,28 +63,23 @@ exports.getLeaderboard = async (req, res, next) => {
     const userStreak = user.streak?.current || user.streakCurrent || 7;
     const userAvatar = user.avatar || "red-car";
 
-    // 1. If MongoDB is active, attempt to query
+    // 1. If Neon DB is active, query rankings
     if (isDbConnected()) {
       try {
-        const User = require("../models/User");
-        const leaderboardUsers = await User.find({
-          "league.tier": tier,
-          isActive: true,
-        })
-          .select("name avatar country league streak")
-          .sort({ "league.weeklyXp": -1 })
-          .limit(30);
-
-        if (leaderboardUsers.length >= 3) {
-          const rankings = leaderboardUsers.map((u, index) => {
-            const isCurrentUser = (u._id || u.id).toString() === (user._id || user.id).toString();
+        const result = await neon.query(
+          "SELECT id, name, avatar, xp, streak_current FROM users ORDER BY xp DESC LIMIT 30"
+        );
+        const rows = result.rows;
+        if (rows && rows.length >= 3) {
+          const rankings = rows.map((u, index) => {
+            const isCurrentUser = u.id === (user._id || user.id);
             return {
               rank: index + 1,
-              id: u._id || u.id,
+              id: u.id,
               name: isCurrentUser ? "You" : u.name,
               avatar: isCurrentUser ? userAvatar : (u.avatar || "fox"),
-              weeklyXp: u.league?.weeklyXp || u.xp || 0,
-              streak: u.streak?.current || 0,
+              weeklyXp: u.xp || 0,
+              streak: u.streak_current || 0,
               isCurrentUser,
               zone: index < 10 ? "promotion" : index >= 25 ? "demotion" : "safe",
             };

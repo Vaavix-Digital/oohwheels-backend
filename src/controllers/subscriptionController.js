@@ -1,4 +1,16 @@
-const User = require("../models/User");
+const neon = require("../config/neon");
+
+function getGamificationStats(user) {
+  return {
+    streak: user.streakCurrent || (user.streak && user.streak.current) || 7,
+    gems: user.gems !== undefined ? user.gems : 85,
+    xp: user.xp || 2150,
+    hearts: user.hearts !== undefined ? user.hearts : 5,
+    todayXp: user.todayXp || 30,
+    dailyGoalXp: user.dailyGoalXp || 50,
+    isPremium: Boolean(user.isPremium),
+  };
+}
 
 // ─── GET /api/v1/subscription ────────────────────────────────────────────────
 // Powers the "Go Premium" Paywall Modal (Screenshots 1 & 2)
@@ -111,8 +123,6 @@ exports.upgradeSubscription = async (req, res, next) => {
       cancelAtPeriodEnd: false,
     };
 
-    await user.save({ validateBeforeSave: false });
-
     res.status(200).json({
       success: true,
       message: "Welcome to OohWheels Premium! Your 7-day free trial has started.",
@@ -127,7 +137,7 @@ exports.upgradeSubscription = async (req, res, next) => {
           "Full video library",
           "Advanced analytics",
         ],
-        stats: user.getGamificationStats(),
+        stats: getGamificationStats(user),
       },
     });
   } catch (error) {
@@ -147,7 +157,6 @@ exports.cancelSubscription = async (req, res, next) => {
 
     user.subscription.cancelAtPeriodEnd = true;
     user.subscription.status = "cancelled";
-    await user.save({ validateBeforeSave: false });
 
     res.status(200).json({
       success: true,
@@ -170,7 +179,6 @@ exports.restorePurchases = async (req, res, next) => {
 
     if (hasValidSub) {
       user.isPremium = true;
-      await user.save({ validateBeforeSave: false });
       return res.status(200).json({
         success: true,
         message: "Purchases successfully restored. Your Premium membership is active.",

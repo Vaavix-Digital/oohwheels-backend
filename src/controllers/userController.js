@@ -1,9 +1,5 @@
-const User = require("../models/User");
-const Bookmark = require("../models/Bookmark");
-const mongoose = require("mongoose");
 const neon = require("../config/neon");
 
-const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
 const isNeonConnected = () => neon.isNeonConfigured();
 
 // ─── GET /api/v1/users/me ─────────────────────────────────────────────────────
@@ -26,11 +22,6 @@ exports.getProfileScreen = async (req, res, next) => {
       : "Oct 2026";
 
     let savedCount = 5;
-    if (isDbConnected()) {
-      try {
-        savedCount = await Bookmark.countDocuments({ user: user._id || user.id });
-      } catch (e) {}
-    }
 
     const currentXp = user.xp || 2150;
     const streakDays = user.streak?.current || user.streakCurrent || 7;
@@ -157,27 +148,7 @@ exports.updateMe = async (req, res, next) => {
       } catch (e) {}
     }
 
-    if (isDbConnected()) {
-      const allowedUpdates = {};
-      if (name) allowedUpdates.name = name;
-      if (preferredLanguage) allowedUpdates.preferredLanguage = preferredLanguage;
-      if (testDate) allowedUpdates.testDate = new Date(testDate);
-      if (dailyGoalXp) allowedUpdates.dailyGoalXp = Number(dailyGoalXp);
-      if (avatar) allowedUpdates.avatar = avatar;
-
-      const user = await User.findByIdAndUpdate(userId, allowedUpdates, {
-        new: true,
-        runValidators: true,
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: "Profile updated successfully.",
-        user: user.toPublicJSON(),
-      });
-    }
-
-    // In-memory fallback
+    // Fallback/in-memory update
     if (name) req.user.name = name;
     if (avatar) req.user.avatar = avatar;
     if (dailyGoalXp) req.user.dailyGoalXp = Number(dailyGoalXp);
@@ -202,11 +173,6 @@ exports.deleteMe = async (req, res, next) => {
         await neon.query("UPDATE users SET role = 'deactivated' WHERE id = $1", [userId]);
         return res.status(200).json({ success: true, message: "Account deactivated successfully." });
       } catch (e) {}
-    }
-
-    if (isDbConnected()) {
-      await User.findByIdAndUpdate(userId, { isActive: false });
-      return res.status(200).json({ success: true, message: "Account deactivated successfully." });
     }
 
     if (req.user) req.user.isActive = false;

@@ -1,7 +1,7 @@
-const mongoose = require("mongoose");
+const neon = require("../config/neon");
 const mockTestStore = require("../utils/mockTestStore");
 
-const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
+const isDbConnected = () => false;
 
 function formatRelativeTime(date) {
   if (!date) return "";
@@ -115,38 +115,7 @@ exports.getMockTestsDashboard = async (req, res, next) => {
       },
     ];
 
-    if (isDbConnected()) {
-      try {
-        const TestAttempt = require("../models/TestAttempt");
-        const pastAttempts = await TestAttempt.find({
-          user: user._id || user.id,
-          status: { $in: ["completed", "timed-out"] },
-        })
-          .sort({ submittedAt: -1 })
-          .limit(10);
 
-        if (pastAttempts.length > 0) {
-          pastResults = pastAttempts.map((a) => {
-            const correct = a.correctCount || 0;
-            const total = a.totalQuestions || 50;
-            const isPassed = a.isPassed !== undefined ? a.isPassed : correct >= 43;
-
-            return {
-              id: a._id,
-              scoreText: `${correct}/${total}`,
-              correctCount: correct,
-              totalQuestions: total,
-              scorePercentage: a.score,
-              timeAgo: formatRelativeTime(a.submittedAt),
-              submittedAt: a.submittedAt,
-              isPassed,
-              badgeText: isPassed ? "Pass" : "Not yet",
-              badgeColor: isPassed ? "green" : "red",
-            };
-          });
-        }
-      } catch (e) {}
-    }
 
     res.status(200).json({
       success: true,
@@ -288,94 +257,24 @@ exports.startExam = async (req, res, next) => {
     const user = req.user;
     const { testType = "full", topicKey } = req.body;
 
-    if (!isDbConnected()) {
-      const attempt = mockTestStore.createAttempt({
-        userId: user._id || user.id,
-        testType,
-        topicKey,
-      });
-
-      const cleanQuestions = attempt.questions.map(({ correctAnswer, explanation, ...q }) => q);
-
-      return res.status(201).json({
-        success: true,
-        data: {
-          attemptId: attempt.id,
-          testTitle: attempt.testTitle,
-          totalQuestions: attempt.totalQuestions,
-          timeLimitMinutes: attempt.timeLimitMinutes,
-          timeLimitEndsAt: attempt.timeLimitEndsAt,
-          initialTimerText: `${attempt.timeLimitMinutes}:00`,
-          questions: cleanQuestions,
-        },
-      });
-    }
-
-    const Question = require("../models/Question");
-    const TestAttempt = require("../models/TestAttempt");
-
-    const countMap = { full: 50, quick: 15, topic: 20, simulator: 50 };
-    const timeMap = { full: 57, quick: 15, topic: 20, simulator: 57 };
-    const passMap = { full: 43, quick: 13, topic: 17, simulator: 43 };
-
-    const questionCount = countMap[testType] || 50;
-    const timeLimitMinutes = timeMap[testType] || 57;
-    const passingScore = passMap[testType] || 43;
-
-    const filter = { isPublished: true, countryCode: user.country?.code || "GB" };
-    if (topicKey) filter.category = topicKey;
-
-    let questions = await Question.aggregate([
-      { $match: filter },
-      { $sample: { size: questionCount } },
-      { $project: { correctAnswer: 0 } },
-    ]);
-
-    if (questions.length < questionCount) {
-      const additional = await Question.aggregate([
-        { $match: { isPublished: true } },
-        { $sample: { size: questionCount - questions.length } },
-        { $project: { correctAnswer: 0 } },
-      ]);
-      questions = questions.concat(additional);
-    }
-
-    const timeLimitEndsAt = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
-
-    const attempt = await TestAttempt.create({
-      user: user._id || user.id,
+    const attempt = mockTestStore.createAttempt({
+      userId: user._id || user.id,
       testType,
-      testTitle: testType === "full" ? "Full Mock Test — Great Britain (Car)" : `${testType} mock`,
-      totalQuestions: questions.length,
-      passingScore,
-      timeLimitMinutes,
-      timeLimitEndsAt,
-      questionIds: questions.map((q) => q._id),
-      flaggedQuestionIds: [],
+      topicKey,
     });
 
-    const formattedQuestions = questions.map((q, idx) => ({
-      index: idx + 1,
-      id: q._id,
-      questionText: q.questionText,
-      options: (q.options || []).map((opt, oIdx) => ({
-        key: ["A", "B", "C", "D", "E"][oIdx] || opt.key.toUpperCase(),
-        originalKey: opt.key,
-        text: opt.text,
-      })),
-      imageUrl: q.imageUrl,
-    }));
+    const cleanQuestions = attempt.questions.map(({ correctAnswer, explanation, ...q }) => q);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: {
-        attemptId: attempt._id,
+        attemptId: attempt.id,
         testTitle: attempt.testTitle,
-        totalQuestions: questions.length,
-        timeLimitMinutes,
-        timeLimitEndsAt,
-        initialTimerText: `${timeLimitMinutes}:00`,
-        questions: formattedQuestions,
+        totalQuestions: attempt.totalQuestions,
+        timeLimitMinutes: attempt.timeLimitMinutes,
+        timeLimitEndsAt: attempt.timeLimitEndsAt,
+        initialTimerText: `${attempt.timeLimitMinutes}:00`,
+        questions: cleanQuestions,
       },
     });
   } catch (error) {
@@ -388,47 +287,14 @@ exports.startExam = async (req, res, next) => {
 exports.toggleFlagQuestion = async (req, res, next) => {
   try {
     const { questionId } = req.body;
-
-    if (!isDbConnected()) {
-      const result = mockTestStore.toggleFlag(req.params.id, questionId);
-      if (!result) {
-        return res.status(404).json({ success: false, message: "Active attempt not found." });
-      }
-      return res.status(200).json({
-        success: true,
-        isFlagged: result.isFlagged,
-        flaggedQuestionIds: result.flaggedQuestionIds,
-      });
-    }
-
-    const TestAttempt = require("../models/TestAttempt");
-    const attempt = await TestAttempt.findOne({
-      _id: req.params.id,
-      user: req.user._id || req.user.id,
-      status: "in-progress",
-    });
-
-    if (!attempt) {
+    const result = mockTestStore.toggleFlag(req.params.id, questionId);
+    if (!result) {
       return res.status(404).json({ success: false, message: "Active attempt not found." });
     }
-
-    const qStr = questionId.toString();
-    const isFlagged = attempt.flaggedQuestionIds.some((id) => id.toString() === qStr);
-
-    if (isFlagged) {
-      attempt.flaggedQuestionIds = attempt.flaggedQuestionIds.filter(
-        (id) => id.toString() !== qStr
-      );
-    } else {
-      attempt.flaggedQuestionIds.push(questionId);
-    }
-
-    await attempt.save();
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      isFlagged: !isFlagged,
-      flaggedQuestionIds: attempt.flaggedQuestionIds,
+      isFlagged: result.isFlagged,
+      flaggedQuestionIds: result.flaggedQuestionIds,
     });
   } catch (error) {
     next(error);
@@ -440,39 +306,11 @@ exports.toggleFlagQuestion = async (req, res, next) => {
 exports.saveAnswers = async (req, res, next) => {
   try {
     const { answers = [] } = req.body;
-
-    if (!isDbConnected()) {
-      const attempt = mockTestStore.saveAnswers(req.params.id, answers);
-      if (!attempt) {
-        return res.status(404).json({ success: false, message: "Active test attempt not found." });
-      }
-      return res.status(200).json({ success: true, message: "Answers auto-saved." });
-    }
-
-    const TestAttempt = require("../models/TestAttempt");
-    const scoringService = require("../services/scoringService");
-
-    const attempt = await TestAttempt.findOne({
-      _id: req.params.id,
-      user: req.user._id || req.user.id,
-      status: "in-progress",
-    });
-
+    const attempt = mockTestStore.saveAnswers(req.params.id, answers);
     if (!attempt) {
       return res.status(404).json({ success: false, message: "Active test attempt not found." });
     }
-
-    if (new Date() > attempt.timeLimitEndsAt) {
-      attempt.status = "timed-out";
-      await attempt.save();
-      return res.status(410).json({ success: false, message: "Time limit exceeded. Submitting test." });
-    }
-
-    const scored = await scoringService.scoreAnswers(attempt.questionIds, answers);
-    attempt.answers = scored;
-    await attempt.save();
-
-    res.status(200).json({ success: true, message: "Answers auto-saved." });
+    return res.status(200).json({ success: true, message: "Answers auto-saved." });
   } catch (error) {
     next(error);
   }
@@ -483,64 +321,11 @@ exports.saveAnswers = async (req, res, next) => {
 exports.submitAttempt = async (req, res, next) => {
   try {
     const { answers = [] } = req.body;
-
-    if (!isDbConnected()) {
-      const result = mockTestStore.submitAttempt(req.params.id, answers);
-      if (!result) {
-        return res.status(404).json({ success: false, message: "Active test attempt not found." });
-      }
-      return res.status(200).json({ success: true, data: result });
-    }
-
-    const TestAttempt = require("../models/TestAttempt");
-    const scoringService = require("../services/scoringService");
-
-    const attempt = await TestAttempt.findOne({
-      _id: req.params.id,
-      user: req.user._id || req.user.id,
-      status: "in-progress",
-    });
-
-    if (!attempt) {
+    const result = mockTestStore.submitAttempt(req.params.id, answers);
+    if (!result) {
       return res.status(404).json({ success: false, message: "Active test attempt not found." });
     }
-
-    const isTimedOut = new Date() > attempt.timeLimitEndsAt;
-    const scored = await scoringService.scoreAnswers(attempt.questionIds, answers);
-    const correctCount = scored.filter((a) => a.isCorrect).length;
-    const skippedCount = scored.filter((a) => !a.selectedAnswer).length;
-    const incorrectCount = scored.length - correctCount - skippedCount;
-    const score = Math.round((correctCount / scored.length) * 100);
-    const isPassed = correctCount >= (attempt.passingScore || 43);
-
-    attempt.answers = scored;
-    attempt.status = isTimedOut ? "timed-out" : "completed";
-    attempt.score = score;
-    attempt.scoreText = `${correctCount}/${attempt.totalQuestions}`;
-    attempt.correctCount = correctCount;
-    attempt.incorrectCount = incorrectCount;
-    attempt.skippedCount = skippedCount;
-    attempt.isPassed = isPassed;
-    attempt.submittedAt = new Date();
-    await attempt.save();
-
-    res.status(200).json({
-      success: true,
-      data: {
-        attemptId: attempt._id,
-        testTitle: attempt.testTitle,
-        scoreText: `${correctCount}/${attempt.totalQuestions}`,
-        correctCount,
-        incorrectCount,
-        skippedCount,
-        totalQuestions: attempt.totalQuestions,
-        passingScore: attempt.passingScore,
-        isPassed,
-        badgeText: isPassed ? "Pass" : "Not yet",
-        badgeColor: isPassed ? "green" : "red",
-        status: attempt.status,
-      },
-    });
+    return res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
@@ -549,25 +334,11 @@ exports.submitAttempt = async (req, res, next) => {
 // ─── GET /api/v1/tests/attempts/:id/result ───────────────────────────────────
 exports.getAttemptResult = async (req, res, next) => {
   try {
-    if (!isDbConnected()) {
-      const attempt = mockTestStore.getAttempt(req.params.id);
-      if (!attempt || attempt.status === "in-progress") {
-        return res.status(404).json({ success: false, message: "Result not available or attempt still in progress." });
-      }
-      return res.status(200).json({ success: true, data: attempt });
-    }
-
-    const TestAttempt = require("../models/TestAttempt");
-    const attempt = await TestAttempt.findOne({
-      _id: req.params.id,
-      user: req.user._id || req.user.id,
-    });
-
+    const attempt = mockTestStore.getAttempt(req.params.id);
     if (!attempt || attempt.status === "in-progress") {
-      return res.status(404).json({ success: false, message: "Result not available." });
+      return res.status(404).json({ success: false, message: "Result not available or attempt still in progress." });
     }
-
-    res.status(200).json({ success: true, data: attempt });
+    return res.status(200).json({ success: true, data: attempt });
   } catch (error) {
     next(error);
   }

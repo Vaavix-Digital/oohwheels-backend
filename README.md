@@ -1,6 +1,6 @@
 # OohWheels – Node.js Backend API
 
-Production-ready backend API for the **OohWheels** driving theory test preparation application, built with **Node.js, Express, and MongoDB (Mongoose)**, modeled to power the frontend Duolingo-style gamified learning path.
+Production-ready backend API for the **OohWheels** driving theory test preparation application, built with **Node.js, Express, Firebase Auth, and Neon PostgreSQL**, modeled to power the frontend Duolingo-style gamified learning path.
 
 ---
 
@@ -29,39 +29,27 @@ The backend provides direct endpoints for all 5 bottom navigation tabs and modal
 
 ```text
 oohwheels/
-├── .env                  # Environment configuration (PORT, MONGODB_URI, JWT_SECRET, CORS)
+├── .env                  # Environment configuration (PORT, DATABASE_URL, FIREBASE_*, JWT_SECRET, CORS)
 ├── .env.example          # Environment template
 ├── package.json          # Dependencies & scripts
 ├── README.md             # Complete API documentation & frontend guide
 ├── scripts/
-│   ├── seed.js           # Database seeder (exact UI data: 7🔥, 85💎, 2150⭐, 23 days, road map, friends, shop)
-│   └── test-route.js     # In-process route verification test
+│   ├── seed.js           # Database seeder (Neon PostgreSQL & in-memory store)
+│   ├── migrate-neon.js   # Neon database migration runner
+│   └── neon-migrate.sql  # SQL schema migrations for Neon
 └── src/
     ├── app.js            # Express app, Helmet, CORS, Rate Limiters, Routes & Error handling
     ├── server.js         # HTTP server entry point with graceful shutdown
     ├── config/
-    │   └── database.js   # Mongoose connection handler
-    ├── models/
-    │   ├── User.js            # User profile, gamification stats, quests, achievements, & inventory
-    │   ├── Unit.js            # Learning path units ("Road Signs", "Right of Way", "Hazards & Safety")
-    │   ├── Lesson.js          # Individual path nodes ("Warning Signs", "Give Way & Stop", etc.)
-    │   ├── UserLessonProgress.js # User status on path (completed/crowned, current, locked)
-    │   ├── Question.js        # Question bank (countryCode, category, options, hidden answer)
-    │   ├── Test.js            # Official mock tests (50 questions, 57 mins, 43 pass)
-    │   ├── TestAttempt.js     # Past exam attempts & scoring
-    │   ├── UserMistake.js     # User mistakes bank (12 items) & weak spots (8 items)
-    │   ├── FlashSign.js       # Road sign flashcards (64 items)
-    │   ├── VideoScene.js      # Animated scenario video clips (28 items)
-    │   ├── FriendRelationship.js # Friends list & head-to-head duels
-    │   ├── ShopItem.js        # Power-ups & cosmetic skins (gems economy)
-    │   ├── PracticeSession.js # Quick practice sessions
-    │   ├── UserProgress.js    # Learning statistics & accuracy
-    │   └── Bookmark.js        # Saved questions
+    │   ├── database.js   # Neon connection initializer
+    │   ├── neon.js       # Neon PostgreSQL connection pool
+    │   └── firebase.js   # Firebase Admin & Client configuration
     ├── middleware/
-    │   ├── authMiddleware.js  # JWT verification (`protect`) & role guard (`restrictTo`)
-    │   ├── errorMiddleware.js # Centralized error & Mongoose/Zod exception handling
+    │   ├── authMiddleware.js  # Firebase & JWT verification (`protect`) & role guard (`restrictTo`)
+    │   ├── errorMiddleware.js # Centralized error & PostgreSQL/Zod exception handling
     │   └── validateMiddleware.js # Zod request body validation
     ├── controllers/
+    │   ├── adminController.js    # Dedicated admin portal, question CRUD, statistics
     │   ├── learnController.js    # Winding road path, interactive lessons, hearts & streak engine
     │   ├── practiceController.js # 8 practice modes, topic mastery, daily challenge
     │   ├── testController.js     # 64% readiness card, available tests, past results history
@@ -71,7 +59,12 @@ oohwheels/
     │   ├── subscriptionController.js # Premium plan & unlimited hearts upgrade
     │   ├── authController.js     # Register, login (rate-limited), forgot/reset-password
     │   └── progressController.js # Learning statistics, history & bookmarks
+    ├── utils/
+    │   ├── mockUserStore.js      # In-memory user demo store
+    │   ├── mockPracticeStore.js  # In-memory practice topics & questions
+    │   └── mockTestStore.js      # In-memory mock tests engine
     └── routes/
+        ├── adminRoutes.js        # /api/v1/admin
         ├── learnRoutes.js        # /api/v1/learn
         ├── practiceRoutes.js     # /api/v1/practice
         ├── testRoutes.js         # /api/v1/tests
@@ -93,7 +86,7 @@ Check `.env`:
 ```env
 PORT=5020
 NODE_ENV=development
-MONGODB_URI=mongodb://127.0.0.1:27017/oohwheels
+DATABASE_URL=postgresql://neondb_owner:<password>@<neon-host>/neondb?sslmode=require
 JWT_SECRET=your_super_long_jwt_secret_min_32_chars
 FRONTEND_URL=https://ooh-wheels-go.base44.app,http://localhost:3000,http://localhost:5173
 ```

@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 
-// In-memory store for demo/Postman testing when MongoDB is not connected
+// In-memory store for demo/Postman testing when Neon database is not connected
 const inMemoryUsers = new Map();
 
 // Helper to format mock user matching User model toPublicJSON()

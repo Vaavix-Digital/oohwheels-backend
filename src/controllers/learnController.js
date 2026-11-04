@@ -1,7 +1,7 @@
-const mongoose = require("mongoose");
+const neon = require("../config/neon");
 const mockPractice = require("../utils/mockPracticeStore");
 
-const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
+const isDbConnected = () => neon.isNeonConfigured();
 
 // Default Units and Lessons matching the 3 UI Screenshots exactly
 const defaultUnits = [
@@ -170,80 +170,7 @@ exports.getLearningPath = async (req, res, next) => {
   try {
     const user = req.user;
 
-    if (isDbConnected()) {
-      try {
-        const Unit = require("../models/Unit");
-        const Lesson = require("../models/Lesson");
-        const UserLessonProgress = require("../models/UserLessonProgress");
-        const units = await Unit.find({ isPublished: true }).sort({ order: 1 });
-
-        if (units.length > 0) {
-          const unitIds = units.map((u) => u._id);
-          const lessons = await Lesson.find({ unit: { $in: unitIds }, isPublished: true }).sort({ globalOrder: 1, order: 1 });
-          const progressRecords = await UserLessonProgress.find({ user: user._id || user.id });
-          const progressMap = {};
-          progressRecords.forEach((p) => { progressMap[p.lesson.toString()] = p; });
-
-          let foundFirstIncomplete = false;
-          const lessonsByUnit = {};
-          units.forEach((u) => { lessonsByUnit[u._id.toString()] = []; });
-
-          for (const lesson of lessons) {
-            const p = progressMap[lesson._id.toString()];
-            let status = "locked";
-            let crowns = 0;
-            let canStart = false;
-
-            if (p && p.status === "completed") {
-              status = "completed";
-              crowns = p.crowns || 1;
-            } else if (!foundFirstIncomplete) {
-              status = "current";
-              canStart = true;
-              foundFirstIncomplete = true;
-            }
-
-            lessonsByUnit[lesson.unit.toString()].push({
-              id: lesson._id,
-              order: lesson.order,
-              title: lesson.title,
-              status,
-              crowns,
-              canStart,
-              xpReward: lesson.xpReward || 20,
-              gemReward: lesson.gemReward || 5,
-              totalQuestions: (lesson.questions || []).length || 4,
-            });
-          }
-
-          const pathUnits = units.map((u) => ({
-            id: u._id,
-            order: u.order,
-            title: u.title,
-            subtitle: `${lessonsByUnit[u._id.toString()]?.length || 0} lessons`,
-            color: u.color || "blue",
-            lessons: lessonsByUnit[u._id.toString()] || [],
-          }));
-
-          return res.status(200).json({
-            success: true,
-            stats: getSafeStats(user),
-            mascotMessage: {
-              avatar: "whizzy-steering-wheel",
-              text: "You're 20 XP from today's goal. One quick lesson will do it!",
-            },
-            premiumBanner: {
-              title: "Go Premium",
-              subtitle: "Unlimited hearts, no ads, all mock tests",
-              buttonText: "Try",
-            },
-            units: pathUnits,
-          });
-        }
-      } catch (e) {}
-    }
-
-    // High-fidelity fallback matching the 3 UI Screenshots perfectly
+    // High-fidelity learning path matching the 3 UI Screenshots perfectly
     res.status(200).json({
       success: true,
       stats: getSafeStats(user),
@@ -343,6 +270,15 @@ exports.completeLesson = async (req, res, next) => {
     user.gems = (user.gems || 85) + earnedGems;
     user.todayXp = (user.todayXp || 30) + earnedXp;
 
+    if (isDbConnected() && (user.id || user._id)) {
+      try {
+        await neon.query(
+          "UPDATE users SET xp = COALESCE(xp, 0) + $1, gems = COALESCE(gems, 0) + $2 WHERE id = $3",
+          [earnedXp, earnedGems, user.id || user._id]
+        );
+      } catch (e) {}
+    }
+
     res.status(200).json({
       success: true,
       message: "Lesson completed!",
@@ -378,6 +314,15 @@ exports.refillHearts = async (req, res, next) => {
 
     user.gems = currentGems - cost;
     user.hearts = 5;
+
+    if (isDbConnected() && (user.id || user._id)) {
+      try {
+        await neon.query(
+          "UPDATE users SET gems = $1, hearts = 5 WHERE id = $2",
+          [user.gems, user.id || user._id]
+        );
+      } catch (e) {}
+    }
 
     res.status(200).json({
       success: true,

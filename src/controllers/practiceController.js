@@ -1,15 +1,7 @@
-const PracticeSession = require("../models/PracticeSession");
-const PracticeTopic = require("../models/PracticeTopic");
-const Question = require("../models/Question");
-const Bookmark = require("../models/Bookmark");
-const UserMistake = require("../models/UserMistake");
-const FlashSign = require("../models/FlashSign");
-const VideoScene = require("../models/VideoScene");
-const User = require("../models/User");
-const mongoose = require("mongoose");
+const neon = require("../config/neon");
 const mockPractice = require("../utils/mockPracticeStore");
 
-const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
+const isDbConnected = () => false;
 
 // ─── GET /api/v1/practice/overview ───────────────────────────────────────────
 // Powers the Practice home tab (8 cards + topic mastery)

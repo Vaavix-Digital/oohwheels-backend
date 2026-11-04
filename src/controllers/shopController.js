@@ -1,54 +1,48 @@
-const User = require("../models/User");
-const ShopItem = require("../models/ShopItem");
+const neon = require("../config/neon");
+
+const defaultShopItems = [
+  {
+    key: "streak-freeze",
+    title: "Streak Freeze",
+    description: "Protect your streak for a day off",
+    costGems: 50,
+    icon: "ice-cube",
+    isPro: false,
+  },
+  {
+    key: "hearts-refill",
+    title: "Hearts Refill",
+    description: "Refill all 5 hearts instantly",
+    costGems: 40,
+    icon: "heart",
+    isPro: false,
+  },
+  {
+    key: "racer-outfit",
+    title: "Racer Outfit",
+    description: "Dress Whizzy in a racing helmet",
+    costGems: 120,
+    icon: "race-car",
+    isPro: true,
+  },
+  {
+    key: "night-theme",
+    title: "Night Theme",
+    description: "A starry-night road skin",
+    costGems: 90,
+    icon: "crescent-moon",
+    isPro: true,
+  },
+];
 
 // ─── GET /api/v1/shop ────────────────────────────────────────────────────────
 exports.getShopItems = async (req, res, next) => {
   try {
     const user = req.user;
-    let items = await ShopItem.find().sort({ order: 1 });
-
-    // Fallback default shop items if not yet seeded
-    if (items.length === 0) {
-      items = [
-        {
-          key: "streak-freeze",
-          title: "Streak Freeze",
-          description: "Protect your streak for a day off",
-          costGems: 50,
-          icon: "ice-cube",
-          isPro: false,
-        },
-        {
-          key: "hearts-refill",
-          title: "Hearts Refill",
-          description: "Refill all 5 hearts instantly",
-          costGems: 40,
-          icon: "heart",
-          isPro: false,
-        },
-        {
-          key: "racer-outfit",
-          title: "Racer Outfit",
-          description: "Dress Whizzy in a racing helmet",
-          costGems: 120,
-          icon: "race-car",
-          isPro: true,
-        },
-        {
-          key: "night-theme",
-          title: "Night Theme",
-          description: "A starry-night road skin",
-          costGems: 90,
-          icon: "crescent-moon",
-          isPro: true,
-        },
-      ];
-    }
-
     res.status(200).json({
       success: true,
       currentGems: user.gems || 85,
-      items,
+      items: defaultShopItems,
     });
   } catch (error) {
     next(error);
@@ -74,15 +68,17 @@ exports.buyItem = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Invalid shop item." });
     }
 
-    if (user.gems < cost) {
+    const currentGems = user.gems !== undefined ? user.gems : 85;
+    if (currentGems < cost) {
       return res.status(400).json({
         success: false,
-        message: `Not enough gems. You have ${user.gems} gems, need ${cost}.`,
-        currentGems: user.gems,
+        message: `Not enough gems. You have ${currentGems} gems, need ${cost}.`,
+        currentGems,
       });
     }
 
-    user.gems -= cost;
+    user.gems = currentGems - cost;
+    if (!user.inventory) user.inventory = [];
 
     // Apply item effect
     if (itemKey === "streak-freeze") {
@@ -97,18 +93,22 @@ exports.buyItem = async (req, res, next) => {
       if (!user.inventory.includes("night-theme")) user.inventory.push("night-theme");
     }
 
-    await user.save({ validateBeforeSave: false });
+    if (neon.isNeonConfigured() && (user.id || user._id)) {
+      try {
+        await neon.query("UPDATE users SET gems = $1 WHERE id = $2", [user.gems, user.id || user._id]);
+      } catch (e) {}
+    }
 
     res.status(200).json({
       success: true,
       message: `Successfully purchased ${itemKey}!`,
       remainingGems: user.gems,
       userInventory: {
-        streakFreezes: user.streakFreezes,
-        hearts: user.hearts,
+        streakFreezes: user.streakFreezes || 0,
+        hearts: user.hearts || 5,
         inventory: user.inventory,
-        activeTheme: user.activeTheme,
-        activeOutfit: user.activeOutfit,
+        activeTheme: user.activeTheme || "default",
+        activeOutfit: user.activeOutfit || "default",
       },
     });
   } catch (error) {

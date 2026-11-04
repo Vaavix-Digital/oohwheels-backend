@@ -6,29 +6,14 @@ const errorMiddleware = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal server error";
 
-  // Mongoose duplicate key error
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
-    message = `${field.charAt(0).toUpperCase() + field.slice(1)} already exists.`;
+  // PostgreSQL / Neon unique constraint violation
+  if (err.code === "23505") {
+    message = "A record with that unique value already exists.";
     statusCode = 409;
   }
 
-  // Mongoose validation error
-  if (err.name === "ValidationError") {
-    message = Object.values(err.errors)
-      .map((e) => e.message)
-      .join(". ");
-    statusCode = 400;
-  }
-
-  // Mongoose bad ObjectId
-  if (err.name === "CastError") {
-    message = `Invalid ${err.path}: ${err.value}`;
-    statusCode = 400;
-  }
-
   // Zod validation error
-  if (err.name === "ZodError") {
+  if (err.name === "ZodError" && Array.isArray(err.errors)) {
     message = err.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ");
     statusCode = 400;
   }
