@@ -1,19 +1,16 @@
-const mongoose = require("mongoose");
+require("dotenv").config();
 
+/**
+ * Database initialization for OohWheels.
+ * Configured for Neon PostgreSQL using connection pooling.
+ * Falls back to in-memory store if offline/unreachable for zero-downtime testing.
+ */
 async function connectDB() {
-  if (!process.env.MONGODB_URI) {
-    console.warn("⚠️ MONGODB_URI is not set. Running in In-Memory / Demo mode for Postman testing.");
-    return;
-  }
-
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 3000,
-    });
-    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
-  } catch (err) {
-    console.warn(`⚠️ MongoDB connection note (${err.message}).`);
-    console.log("👉 Running in In-Memory Demo Mode: You can test all API routes in Postman immediately without local MongoDB running!");
+  if (process.env.DATABASE_URL) {
+    const maskedUrl = process.env.DATABASE_URL.replace(/:[^:@]+@/, ":****@");
+    console.log("⚡ Neon PostgreSQL configured:", maskedUrl);
+  } else {
+    console.log("⚡ Database: In-Memory / Demo Store active.");
   }
 }
 

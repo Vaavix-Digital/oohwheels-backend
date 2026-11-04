@@ -18,6 +18,12 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, "Please enter a valid email address"],
     },
+    phone: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
     firebaseUid: {
       type: String,
       unique: true,
@@ -270,6 +276,7 @@ userSchema.methods.toPublicJSON = function () {
     id: this._id,
     name: this.name,
     email: this.email,
+    phone: this.phone || null,
     avatar: this.avatar || "red-car",
     badgesCount: this.badgesCount || 2,
     country: this.country,

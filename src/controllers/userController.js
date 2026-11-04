@@ -1,8 +1,10 @@
 const User = require("../models/User");
 const Bookmark = require("../models/Bookmark");
 const mongoose = require("mongoose");
+const neon = require("../config/neon");
 
 const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
+const isNeonConnected = () => neon.isNeonConfigured();
 
 // ─── GET /api/v1/users/me ─────────────────────────────────────────────────────
 exports.getMe = (req, res) => {
@@ -13,7 +15,7 @@ exports.getMe = (req, res) => {
 };
 
 // ─── GET /api/v1/users/me/profile-screen ─────────────────────────────────────
-// Powers the Profile Tab (Screenshots 3, 4, 5)
+// Powers the Profile Tab (Matching UI Screenshot)
 exports.getProfileScreen = async (req, res, next) => {
   try {
     const user = req.user;
@@ -26,21 +28,33 @@ exports.getProfileScreen = async (req, res, next) => {
     let savedCount = 5;
     if (isDbConnected()) {
       try {
-        savedCount = await Bookmark.countDocuments({ user: user._id });
+        savedCount = await Bookmark.countDocuments({ user: user._id || user.id });
       } catch (e) {}
     }
+
+    const currentXp = user.xp || 2150;
+    const streakDays = user.streak?.current || user.streakCurrent || 7;
+    const gemsCount = user.gems || 85;
+    const heartsCount = user.hearts || 5;
 
     res.status(200).json({
       success: true,
       data: {
+        topStats: {
+          streak: streakDays,
+          gems: gemsCount,
+          xp: currentXp,
+          hearts: heartsCount,
+          heartsMax: 5,
+        },
         header: {
           name: user.name || "Learner Driver",
-          subTitle: `${user.country?.code || "GB"} ${user.country?.subRegion || "Great Britain"} · Joined ${joinMonthYear}`,
+          subTitle: "GB Great Britain · Joined " + joinMonthYear,
           avatar: user.avatar || "whizzy-steering-wheel",
         },
         statTiles: [
-          { key: "streak", value: user.streak?.current || 7, label: "Streak", icon: "flame" },
-          { key: "xp", value: (user.xp || 2150).toLocaleString(), label: "XP", icon: "star" },
+          { key: "streak", value: streakDays, label: "Streak", icon: "flame" },
+          { key: "xp", value: currentXp.toLocaleString(), label: "XP", icon: "star" },
           { key: "league", value: user.league?.tier || "Gold", label: "League", icon: "trophy" },
           { key: "badges", value: user.badgesCount || 2, label: "Badges", icon: "badge" },
         ],
@@ -88,7 +102,7 @@ exports.getProfileScreen = async (req, res, next) => {
           { id: "crowned", title: "Crowned", icon: "crown", isUnlocked: true, progress: 1, target: 1 },
         ],
         shopSummary: {
-          balanceGems: user.gems || 85,
+          balanceGems: gemsCount,
           earnMoreAvailable: true,
         },
         links: {
@@ -105,32 +119,73 @@ exports.getProfileScreen = async (req, res, next) => {
 // ─── PATCH /api/v1/users/me ───────────────────────────────────────────────────
 exports.updateMe = async (req, res, next) => {
   try {
-    const { name, country, preferredLanguage, testDate, dailyGoalXp, avatar } = req.body;
+    const { name, preferredLanguage, testDate, dailyGoalXp, avatar } = req.body;
+    const userId = req.user._id || req.user.id;
 
-    const allowedUpdates = {};
-    if (name) allowedUpdates.name = name;
-    if (country) allowedUpdates.country = typeof country === "string" ? { code: country.toUpperCase(), name: country, subRegion: country } : country;
-    if (preferredLanguage) allowedUpdates.preferredLanguage = preferredLanguage;
-    if (testDate) allowedUpdates.testDate = new Date(testDate);
-    if (dailyGoalXp) allowedUpdates.dailyGoalXp = Number(dailyGoalXp);
-    if (avatar) allowedUpdates.avatar = avatar;
+    if (isNeonConnected()) {
+      try {
+        const updates = [];
+        const values = [];
+        let idx = 1;
+
+        if (name) { updates.push(`name = $${idx++}`); values.push(name); }
+        if (avatar) { updates.push(`avatar = $${idx++}`); values.push(avatar); }
+        if (dailyGoalXp) { updates.push(`daily_goal_xp = $${idx++}`); values.push(Number(dailyGoalXp)); }
+        if (testDate) { updates.push(`test_date = $${idx++}`); values.push(new Date(testDate)); }
+        updates.push(`updated_at = NOW()`);
+
+        if (updates.length > 1) {
+          values.push(userId);
+          const q = `UPDATE users SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`;
+          const result = await neon.query(q, values);
+          if (result.rows.length > 0) {
+            const u = result.rows[0];
+            return res.status(200).json({
+              success: true,
+              message: "Profile updated successfully.",
+              user: {
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                avatar: u.avatar,
+                dailyGoalXp: u.daily_goal_xp,
+                testDate: u.test_date,
+              },
+            });
+          }
+        }
+      } catch (e) {}
+    }
 
     if (isDbConnected()) {
-      const user = await User.findByIdAndUpdate(req.user._id, allowedUpdates, {
+      const allowedUpdates = {};
+      if (name) allowedUpdates.name = name;
+      if (preferredLanguage) allowedUpdates.preferredLanguage = preferredLanguage;
+      if (testDate) allowedUpdates.testDate = new Date(testDate);
+      if (dailyGoalXp) allowedUpdates.dailyGoalXp = Number(dailyGoalXp);
+      if (avatar) allowedUpdates.avatar = avatar;
+
+      const user = await User.findByIdAndUpdate(userId, allowedUpdates, {
         new: true,
         runValidators: true,
       });
 
       return res.status(200).json({
         success: true,
+        message: "Profile updated successfully.",
         user: user.toPublicJSON(),
       });
     }
 
     // In-memory fallback
-    Object.assign(req.user, allowedUpdates);
+    if (name) req.user.name = name;
+    if (avatar) req.user.avatar = avatar;
+    if (dailyGoalXp) req.user.dailyGoalXp = Number(dailyGoalXp);
+    if (testDate) req.user.testDate = new Date(testDate);
+
     res.status(200).json({
       success: true,
+      message: "Profile updated successfully.",
       user: typeof req.user.toPublicJSON === "function" ? req.user.toPublicJSON() : req.user,
     });
   } catch (error) {
@@ -141,8 +196,21 @@ exports.updateMe = async (req, res, next) => {
 // ─── DELETE /api/v1/users/me ──────────────────────────────────────────────────
 exports.deleteMe = async (req, res, next) => {
   try {
-    await User.findByIdAndUpdate(req.user._id, { isActive: false });
-    res.status(200).json({ success: true, message: "Account deactivated." });
+    const userId = req.user._id || req.user.id;
+    if (isNeonConnected()) {
+      try {
+        await neon.query("UPDATE users SET role = 'deactivated' WHERE id = $1", [userId]);
+        return res.status(200).json({ success: true, message: "Account deactivated successfully." });
+      } catch (e) {}
+    }
+
+    if (isDbConnected()) {
+      await User.findByIdAndUpdate(userId, { isActive: false });
+      return res.status(200).json({ success: true, message: "Account deactivated successfully." });
+    }
+
+    if (req.user) req.user.isActive = false;
+    res.status(200).json({ success: true, message: "Account deactivated successfully." });
   } catch (error) {
     next(error);
   }
@@ -153,18 +221,21 @@ exports.getAllUsers = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
 
-    const [users, total] = await Promise.all([
-      User.find().skip(skip).limit(limit).sort({ createdAt: -1 }),
-      User.countDocuments(),
-    ]);
+    if (isNeonConnected()) {
+      try {
+        const offset = (page - 1) * limit;
+        const result = await neon.query("SELECT id, name, email, role, avatar, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2", [limit, offset]);
+        return res.status(200).json({
+          success: true,
+          data: result.rows,
+        });
+      } catch (e) {}
+    }
 
-    res.status(200).json({
-      success: true,
-      data: users.map((u) => u.toPublicJSON()),
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
-    });
+    const mockUserStore = require("../utils/mockUserStore");
+    const users = Array.from(mockUserStore.inMemoryUsers.values()).slice(0, limit);
+    res.status(200).json({ success: true, data: users });
   } catch (error) {
     next(error);
   }

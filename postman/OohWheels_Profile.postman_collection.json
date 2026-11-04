@@ -1,0 +1,182 @@
+{
+  "info": {
+    "_postman_id": "e8f7a6b5-9012-3456-789a-bcde01234567",
+    "name": "OohWheels - Profile Section API",
+    "description": "Complete Postman collection for the OohWheels Profile Section. Powers the Profile Screen (Avatar, Name, Great Britain subtitle, 4 Stat Tiles: Streak/XP/Gold League/Badges, Membership upgrade card, Daily Quests with progress bars, Achievements, and Profile Editing).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5020/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Login (Obtain Token First)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.token) {",
+              "        pm.collectionVariables.set(\"token\", jsonData.token);",
+              "        console.log(\"✅ Profile Auth Token auto-saved:\", jsonData.token);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emailOrPhone\": \"learner@oohwheels.com\",\n  \"password\": \"password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Authenticates as the learner to obtain a JWT token, automatically saving it to {{token}}."
+      },
+      "response": []
+    },
+    {
+      "name": "1. Get Full Profile Screen (Matching UI)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me/profile-screen",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me",
+            "profile-screen"
+          ]
+        },
+        "description": "Powers the entire Profile Tab: Header (Learner Driver, avatar, UK join date), 4 Stat Tiles (7 Streak, 2,150 XP, Gold League, 2 Badges), Membership card ('Free with ads', 'Upgrade'), and Daily Quests (30/50 XP, 3/5 in a row)."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Get Current User Info",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "description": "Returns raw user object and account details."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Update User Profile (Avatar, Name, Goal, Test Date)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Learner Driver\",\n  \"avatar\": \"whizzy-steering-wheel\",\n  \"dailyGoalXp\": 50,\n  \"testDate\": \"2026-11-20T09:00:00.000Z\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "description": "Updates profile attributes: display name, selected avatar mascot, daily XP goal, or booked driving test date."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Deactivate Account",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "description": "Deactivates the current user's account."
+      },
+      "response": []
+    }
+  ]
+}

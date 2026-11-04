@@ -1,0 +1,382 @@
+{
+  "info": {
+    "_postman_id": "c7a8b92d-4e12-43fa-a6e5-89f54310bc99",
+    "name": "OohWheels - Mock Tests Section API",
+    "description": "Complete Postman collection for testing the OohWheels Mock Tests Section. Powers the Mock Tests Dashboard (64% readiness gauge), Full Readiness Report, Pre-Test Checklists, Live Exam Player with Timer, Question Flagging, Autosave, and Official DVSA Test Scoring.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5020/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "attemptId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "questionId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Login (Obtain Token First)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.token) {",
+              "        pm.collectionVariables.set(\"token\", jsonData.token);",
+              "        console.log(\"✅ Mock Tests Auth Token auto-saved:\", jsonData.token);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emailOrPhone\": \"learner@oohwheels.com\",\n  \"password\": \"password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Logs in demo user to get JWT token, automatically saving it to the {{token}} variable."
+      },
+      "response": []
+    },
+    {
+      "name": "1. Mock Tests Dashboard (Home Screen)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tests/dashboard",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "dashboard"
+          ]
+        },
+        "description": "Powers the Mock Tests main tab: 64% readiness gauge ('Getting there'), 4 test cards (Full mock, Quick mock, Topic test, Exam simulator), and past results history."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Get Full Readiness Report",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tests/readiness",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "readiness"
+          ]
+        },
+        "description": "Triggered by 'See full readiness report' button. Returns 4-week historical score trends, 8-category accuracy breakdown, and personalized study plan."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Pre-Test Checklist (Full Mock Test)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tests/full/details",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "full",
+            "details"
+          ]
+        },
+        "description": "Pre-test rules & checklist screen before starting Full Mock: 50 questions, 57 minutes, pass mark 43."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Pre-Test Checklist (Quick Mock)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tests/quick/details",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "quick",
+            "details"
+          ]
+        },
+        "description": "Pre-test checklist for Quick Mock: 15 questions, 15 minutes, instant feedback."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Start Exam (Generates Questions & Starts Timer)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201 || pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.data && jsonData.data.attemptId) {",
+              "        pm.collectionVariables.set(\"attemptId\", jsonData.data.attemptId);",
+              "        console.log(\"✅ Exam Attempt ID auto-saved:\", jsonData.data.attemptId);",
+              "    }",
+              "    if (jsonData.data && jsonData.data.questions && jsonData.data.questions.length > 0) {",
+              "        var qId = jsonData.data.questions[0].id || jsonData.data.questions[0]._id;",
+              "        pm.collectionVariables.set(\"questionId\", qId);",
+              "        console.log(\"✅ First Question ID auto-saved:\", qId);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"testType\": \"quick\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tests/start-exam",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "start-exam"
+          ]
+        },
+        "description": "Starts a live exam attempt. Returns countdown timer, attemptId, and questions array (without answers). Options for testType: 'full', 'quick', 'topic', 'simulator'."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Toggle Flag Question (Review Later)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"questionId\": \"{{questionId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tests/attempts/{{attemptId}}/flag",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "attempts",
+            "{{attemptId}}",
+            "flag"
+          ]
+        },
+        "description": "Toggles flag (flag/unflag) for the specified question in the live exam navigation bar."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Autosave Mid-Exam Answers",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"answers\": [\n    {\n      \"questionId\": \"{{questionId}}\",\n      \"selectedAnswer\": \"B\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tests/attempts/{{attemptId}}/answers",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "attempts",
+            "{{attemptId}}",
+            "answers"
+          ]
+        },
+        "description": "Background autosave endpoint called periodically while the candidate answers questions."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Submit Exam (Official DVSA Scoring)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"answers\": [\n    {\n      \"questionId\": \"{{questionId}}\",\n      \"selectedAnswer\": \"B\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tests/attempts/{{attemptId}}/submit",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "attempts",
+            "{{attemptId}}",
+            "submit"
+          ]
+        },
+        "description": "Final exam submission. Performs official pass/fail evaluation against pass mark (e.g. 43/50) and returns breakdown."
+      },
+      "response": []
+    },
+    {
+      "name": "9. Get Exam Result Details",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tests/attempts/{{attemptId}}/result",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tests",
+            "attempts",
+            "{{attemptId}}",
+            "result"
+          ]
+        },
+        "description": "Retrieves the completed exam score card and results."
+      },
+      "response": []
+    }
+  ]
+}

@@ -13,6 +13,7 @@ const learnRoutes = require("./routes/learnRoutes");
 const leagueRoutes = require("./routes/leagueRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const shopRoutes = require("./routes/shopRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 const { bookmarkRouter } = require("./routes/progressRoutes");
 const errorMiddleware = require("./middleware/errorMiddleware");
 
@@ -79,6 +80,7 @@ app.use("/api/v1/tests", testRoutes);
 app.use("/api/v1/practice", practiceRoutes);
 app.use("/api/v1/progress", progressRoutes);
 app.use("/api/v1/bookmarks", bookmarkRouter);
+app.use("/api/v1/admin", adminRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {

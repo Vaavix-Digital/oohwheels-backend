@@ -26,14 +26,19 @@ const registerSchema = {
     if (!body.password || typeof body.password !== "string" || body.password.length < 8) {
       errors.push({ path: ["password"], message: "Password must be at least 8 characters" });
     }
+    if (body.confirmPassword && body.confirmPassword !== body.password) {
+      errors.push({ path: ["confirmPassword"], message: "Passwords do not match" });
+    }
     if (errors.length) throw new ValidationError(errors);
 
     return {
       name: body.name.trim(),
       email: body.email.trim().toLowerCase(),
+      phone: (body.phoneNumber || body.phone || "").trim() || undefined,
       password: body.password,
-      country: body.country,
+      country: body.country || "GB",
       preferredLanguage: body.preferredLanguage || "en",
+      termsAccepted: body.termsAccepted !== undefined ? Boolean(body.termsAccepted) : true,
     };
   },
 };
@@ -41,16 +46,26 @@ const registerSchema = {
 const loginSchema = {
   parse(body = {}) {
     const errors = [];
-    if (!body.email || typeof body.email !== "string" || !EMAIL_REGEX.test(body.email.trim())) {
-      errors.push({ path: ["email"], message: "Invalid email address" });
+    const identifier = (body.emailOrPhone || body.email || body.phone || body.username || "").trim();
+
+    if (!identifier) {
+      errors.push({ path: ["emailOrPhone"], message: "Please enter your email or phone number" });
+    } else if (identifier.includes("@") && !EMAIL_REGEX.test(identifier)) {
+      errors.push({ path: ["email"], message: "Invalid email address format" });
+    } else if (!identifier.includes("@") && identifier.length < 5) {
+      errors.push({ path: ["phone"], message: "Please enter a valid phone number or email" });
     }
+
     if (!body.password || typeof body.password !== "string" || body.password.length < 1) {
       errors.push({ path: ["password"], message: "Password is required" });
     }
+
     if (errors.length) throw new ValidationError(errors);
 
     return {
-      email: body.email.trim().toLowerCase(),
+      emailOrPhone: identifier,
+      email: identifier.includes("@") ? identifier.toLowerCase() : identifier,
+      phone: !identifier.includes("@") ? identifier : undefined,
       password: body.password,
     };
   },

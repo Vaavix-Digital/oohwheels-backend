@@ -1,10 +1,31 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const neon = require("../config/neon");
 const { isFirebaseAdminReady, verifyFirebaseToken } = require("../config/firebase");
 
+// Map Neon DB row → plain user object for req.user
+const rowToUser = (row) => ({
+  id: row.id,
+  _id: row.id,
+  name: row.name,
+  email: row.email,
+  phone: row.phone || null,
+  avatar: row.avatar || "red-car",
+  countryCode: "GB",
+  country: { code: "GB", name: "United Kingdom", subRegion: "Great Britain" },
+  streakCurrent: row.streak_current || 0,
+  gems: row.gems || 50,
+  xp: row.xp || 0,
+  dailyGoalXp: row.daily_goal_xp || 50,
+  hearts: row.hearts || 5,
+  testDate: row.test_date || null,
+  createdAt: row.created_at,
+  isActive: true,
+  role: row.role || "user",
+});
+
 /**
- * Protect routes: Supports BOTH Firebase ID tokens AND standard JWT tokens.
- * Automatically recognizes if token is from Firebase or local JWT.
+ * Protect routes: Supports Firebase ID tokens AND standard JWT tokens.
+ * Falls back to in-memory mock store when DB is not configured.
  */
 const protect = async (req, res, next) => {
   try {
@@ -27,44 +48,54 @@ const protect = async (req, res, next) => {
         if (decodedFirebase && decodedFirebase.uid) {
           req.firebaseUser = decodedFirebase;
 
-          // Find or auto-provision local user profile linked to Firebase UID
-          user = await User.findOne({
-            $or: [
-              { firebaseUid: decodedFirebase.uid },
-              { email: decodedFirebase.email },
-            ],
-          });
+          if (neon.isNeonConfigured()) {
+            const result = await neon.query(
+              `SELECT * FROM users WHERE firebase_uid = $1 OR email = $2 LIMIT 1`,
+              [decodedFirebase.uid, decodedFirebase.email]
+            );
 
-          if (!user) {
-            // Provision new user from Firebase credentials
-            user = await User.create({
-              name: decodedFirebase.name || (decodedFirebase.email ? decodedFirebase.email.split("@")[0] : "Learner"),
-              email: decodedFirebase.email,
-              firebaseUid: decodedFirebase.uid,
-              avatar: "red-car",
-              country: { code: "GB", name: "United Kingdom", subRegion: "Great Britain" },
-            });
-          } else if (!user.firebaseUid) {
-            // Link existing user by email to Firebase UID
-            user.firebaseUid = decodedFirebase.uid;
-            await user.save({ validateBeforeSave: false });
+            if (result.rows.length === 0) {
+              // Auto-provision new user from Firebase
+              const userId = require("crypto").randomUUID();
+              const inserted = await neon.query(
+                `INSERT INTO users (id, name, email, firebase_uid, avatar, country_code, gems, xp, hearts, daily_goal_xp, streak_current, created_at)
+                 VALUES ($1,$2,$3,$4,'red-car','GB',50,0,5,50,0,NOW()) RETURNING *`,
+                [
+                  userId,
+                  decodedFirebase.name || decodedFirebase.email?.split("@")[0] || "Learner",
+                  decodedFirebase.email,
+                  decodedFirebase.uid,
+                ]
+              );
+              user = rowToUser(inserted.rows[0]);
+            } else {
+              user = rowToUser(result.rows[0]);
+            }
           }
         }
       } catch (fbError) {
-        // If not a Firebase token, continue to standard JWT
+        // Not a Firebase token — try JWT below
       }
     }
 
-    // 2. Fallback to standard local JWT if not Firebase
+    // 2. Standard JWT fallback
     if (!user) {
       try {
-        const decodedJwt = jwt.verify(token, process.env.JWT_SECRET || "oohwheels_super_secure_jwt_dev_secret_key_123456789");
-        const mongoose = require("mongoose");
-        const mockUserStore = require("../utils/mockUserStore");
+        const decodedJwt = jwt.verify(
+          token,
+          process.env.JWT_SECRET || "oohwheels_super_secure_jwt_dev_secret_key_123456789"
+        );
 
-        if (mongoose.connection && mongoose.connection.readyState === 1) {
-          user = await User.findById(decodedJwt.id).select("-passwordHash");
-        } else {
+        if (neon.isNeonConfigured()) {
+          const result = await neon.query(`SELECT * FROM users WHERE id = $1 LIMIT 1`, [decodedJwt.id]);
+          if (result.rows.length > 0) {
+            user = rowToUser(result.rows[0]);
+          }
+        }
+
+        // If still no user (Neon not configured or user not in DB), use mock store
+        if (!user) {
+          const mockUserStore = require("../utils/mockUserStore");
           user = mockUserStore.findUserById(decodedJwt.id);
         }
       } catch (jwtError) {
@@ -75,7 +106,7 @@ const protect = async (req, res, next) => {
       }
     }
 
-    if (!user || !user.isActive) {
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: "User not found or account deactivated.",

@@ -1,11 +1,11 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const mongoose = require("mongoose");
-const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const neon = require("../config/neon");
 const mockUserStore = require("../utils/mockUserStore");
 
-// Helper: check if MongoDB is active
-const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
+// Helper: check if Neon DB is configured and reachable
+const isDbConnected = () => neon.isNeonConfigured();
 
 // Helper: sign access token
 const signToken = (id) =>
@@ -15,8 +15,7 @@ const signToken = (id) =>
 
 // Helper: send token response
 const sendTokenResponse = (user, statusCode, res) => {
-  const token = signToken(user._id || user.id);
-
+  const token = signToken(user.id || user._id);
   res.status(statusCode).json({
     success: true,
     token,
@@ -24,47 +23,71 @@ const sendTokenResponse = (user, statusCode, res) => {
   });
 };
 
+// Helper: map a Neon DB row to public user object
+const rowToPublicUser = (row) => ({
+  id: row.id,
+  name: row.name,
+  email: row.email,
+  phone: row.phone || null,
+  avatar: row.avatar || "red-car",
+  countryCode: "GB",
+  country: { code: "GB", name: "United Kingdom", subRegion: "Great Britain" },
+  streakCurrent: row.streak_current || 0,
+  gems: row.gems || 50,
+  xp: row.xp || 0,
+  dailyGoalXp: row.daily_goal_xp || 50,
+  hearts: row.hearts || 5,
+  testDate: row.test_date || null,
+  createdAt: row.created_at,
+});
+
 // ─── POST /api/v1/auth/register ──────────────────────────────────────────────
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, country, preferredLanguage } = req.body;
+    const { name, email, phone, phoneNumber, password, country, preferredLanguage } = req.body;
+    const cleanPhone = (phone || phoneNumber || "").trim() || null;
+    const cleanEmail = email.toLowerCase().trim();
 
     if (isDbConnected()) {
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
+      // Check for existing user
+      const existsResult = await neon.query(
+        `SELECT id FROM users WHERE email = $1 ${cleanPhone ? "OR phone = $2" : ""}`,
+        cleanPhone ? [cleanEmail, cleanPhone] : [cleanEmail]
+      );
+
+      if (existsResult.rows.length > 0) {
         return res.status(409).json({
           success: false,
-          message: "An account with this email already exists.",
+          message: "An account with this email or phone number already exists.",
         });
       }
 
-      const user = await User.create({
-        name,
-        email,
-        passwordHash: password,
-        country,
-        preferredLanguage,
-      });
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, 12);
+      const userId = crypto.randomUUID();
+      const countryCode = typeof country === "object" ? country?.code : country || "GB";
 
-      return sendTokenResponse(user, 201, res);
+      const result = await neon.query(
+        `INSERT INTO users (id, name, email, phone, password_hash, avatar, country_code, gems, xp, hearts, daily_goal_xp, streak_current, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 50, 0, 5, 50, 0, NOW())
+         RETURNING *`,
+        [userId, name, cleanEmail, cleanPhone, passwordHash, "red-car", countryCode]
+      );
+
+      const user = rowToPublicUser(result.rows[0]);
+      const token = signToken(user.id);
+      return res.status(201).json({ success: true, token, user });
     }
 
-    // In-memory demo fallback for zero-database Postman testing
-    if (mockUserStore.findUserByEmail(email)) {
+    // ── In-memory demo fallback ──
+    if (mockUserStore.findUserByIdentifier(email) || (cleanPhone && mockUserStore.findUserByIdentifier(cleanPhone))) {
       return res.status(409).json({
         success: false,
-        message: "An account with this email already exists.",
+        message: "An account with this email or phone number already exists.",
       });
     }
 
-    const newUser = await mockUserStore.createInMemoryUser({
-      name,
-      email,
-      password,
-      country,
-      preferredLanguage,
-    });
-
+    const newUser = await mockUserStore.createInMemoryUser({ name, email, phone: cleanPhone, password, country, preferredLanguage });
     sendTokenResponse(newUser, 201, res);
   } catch (error) {
     next(error);
@@ -74,43 +97,49 @@ exports.register = async (req, res, next) => {
 // ─── POST /api/v1/auth/login ─────────────────────────────────────────────────
 exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, emailOrPhone, phone } = req.body;
+    const identifier = (emailOrPhone || email || phone || "").trim();
 
     if (isDbConnected()) {
-      const user = await User.findOne({ email }).select("+passwordHash");
+      const result = await neon.query(
+        `SELECT * FROM users WHERE email = $1 OR phone = $2 OR phone = $3 LIMIT 1`,
+        [identifier.toLowerCase(), identifier, identifier.replace(/\s+/g, "")]
+      );
 
-      if (!user || !(await user.comparePassword(password))) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid email or password.",
-        });
+      if (result.rows.length === 0) {
+        return res.status(401).json({ success: false, message: "Invalid email/phone or password." });
       }
 
-      if (!user.isActive) {
-        return res.status(403).json({
-          success: false,
-          message: "Your account has been deactivated.",
-        });
+      const row = result.rows[0];
+
+      // Verify password
+      const isMatch = await bcrypt.compare(password, row.password_hash || "");
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: "Invalid email/phone or password." });
       }
 
-      user.lastLoginAt = new Date();
-      await user.save({ validateBeforeSave: false });
+      // Update last login
+      await neon.query(`UPDATE users SET updated_at = NOW() WHERE id = $1`, [row.id]);
 
-      return sendTokenResponse(user, 200, res);
+      const user = rowToPublicUser(row);
+      const token = signToken(user.id);
+      return res.status(200).json({ success: true, token, user });
     }
 
-    // In-memory demo fallback
-    let user = mockUserStore.findUserByEmail(email);
-
-    // If logging in with demo account or in-memory account
-    if (!user && email.toLowerCase() === "learner@oohwheels.com") {
+    // ── In-memory demo fallback ──
+    let user = mockUserStore.findUserByIdentifier(identifier);
+    if (!user && (
+      identifier.toLowerCase() === "learner@oohwheels.com" ||
+      identifier.replace(/\s+/g, "") === "07700900123" ||
+      identifier.replace(/\s+/g, "") === "+447700900123"
+    )) {
       user = mockUserStore.getDemoUser();
     }
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password. (Hint: use learner@oohwheels.com / password123 for demo)",
+        message: "Invalid email/phone or password. (Hint: use learner@oohwheels.com / password123 for demo)",
       });
     }
 
@@ -130,18 +159,14 @@ exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
     const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
     if (isDbConnected()) {
-      const user = await User.findOne({ email });
-
-      if (user) {
-        user.passwordResetToken = crypto
-          .createHash("sha256")
-          .update(resetToken)
-          .digest("hex");
-        user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
-        await user.save({ validateBeforeSave: false });
-      }
+      await neon.query(
+        `UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE email = $3`,
+        [hashedToken, expiresAt, email.toLowerCase()]
+      );
     }
 
     const response = {
@@ -163,30 +188,33 @@ exports.forgotPassword = async (req, res, next) => {
 exports.resetPassword = async (req, res, next) => {
   try {
     const { token, password } = req.body;
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     if (isDbConnected()) {
-      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-      const user = await User.findOne({
-        passwordResetToken: hashedToken,
-        passwordResetExpires: { $gt: Date.now() },
-      }).select("+passwordResetToken +passwordResetExpires");
+      const result = await neon.query(
+        `SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW() LIMIT 1`,
+        [hashedToken]
+      );
 
-      if (!user) {
+      if (result.rows.length === 0) {
         return res.status(400).json({
           success: false,
           message: "Password reset token is invalid or has expired.",
         });
       }
 
-      user.passwordHash = password;
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
-      await user.save();
+      const newHash = await bcrypt.hash(password, 12);
+      await neon.query(
+        `UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2`,
+        [newHash, result.rows[0].id]
+      );
 
-      return sendTokenResponse(user, 200, res);
+      const user = rowToPublicUser(result.rows[0]);
+      const jwtToken = signToken(user.id);
+      return res.status(200).json({ success: true, token: jwtToken, user });
     }
 
-    // In-memory demo fallback: accept reset and return logged-in demo user
+    // In-memory demo fallback
     const demoUser = mockUserStore.getDemoUser();
     sendTokenResponse(demoUser, 200, res);
   } catch (error) {

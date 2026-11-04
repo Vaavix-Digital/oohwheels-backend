@@ -80,6 +80,7 @@ const defaultDemoUser = {
   id: demoUserId,
   name: "Alex Driver",
   email: "learner@oohwheels.com",
+  phone: "+447700900123",
   passwordHash: defaultHashedPassword,
   avatar: "whizzy-steering-wheel",
   badgesCount: 2,
@@ -106,6 +107,42 @@ const defaultDemoUser = {
 
 inMemoryUsers.set(defaultDemoUser.email.toLowerCase(), defaultDemoUser);
 inMemoryUsers.set(defaultDemoUser.id, defaultDemoUser);
+inMemoryUsers.set("+447700900123", defaultDemoUser);
+inMemoryUsers.set("07700900123", defaultDemoUser);
+inMemoryUsers.set("07700 900123", defaultDemoUser);
+
+// Seed default Admin user
+const defaultAdminUser = {
+  _id: "usr_admin_oohwheels_001",
+  id: "usr_admin_oohwheels_001",
+  name: "OohWheels Admin",
+  email: "admin@oohwheels.com",
+  phone: "+447700999999",
+  passwordHash: bcrypt.hashSync("adminpassword123", 10),
+  avatar: "whizzy-steering-wheel",
+  badgesCount: 10,
+  country: { code: "GB", name: "United Kingdom", subRegion: "Great Britain" },
+  preferredLanguage: "en",
+  role: "admin",
+  isActive: true,
+  isPremium: true,
+  streak: { current: 30, longest: 30, lastActiveDate: new Date() },
+  gems: 9999,
+  xp: 50000,
+  todayXp: 100,
+  dailyGoalXp: 100,
+  hearts: 5,
+  dailyStudyMinutes: 30,
+  toPublicJSON() {
+    return formatUserJSON(this);
+  },
+  async comparePassword(candidate) {
+    return bcrypt.compare(candidate, this.passwordHash);
+  },
+};
+
+inMemoryUsers.set(defaultAdminUser.email.toLowerCase(), defaultAdminUser);
+inMemoryUsers.set(defaultAdminUser.id, defaultAdminUser);
 
 module.exports = {
   inMemoryUsers,
@@ -113,24 +150,32 @@ module.exports = {
   getDemoUser() {
     return defaultDemoUser;
   },
+  findUserByIdentifier(identifier) {
+    if (!identifier) return null;
+    const clean = identifier.toLowerCase().trim();
+    return inMemoryUsers.get(clean) || inMemoryUsers.get(clean.replace(/\s+/g, "")) || null;
+  },
   findUserByEmail(email) {
-    return inMemoryUsers.get(email.toLowerCase().trim()) || null;
+    return this.findUserByIdentifier(email);
   },
   findUserById(id) {
     return inMemoryUsers.get(String(id)) || inMemoryUsers.get(demoUserId) || null;
   },
-  async createInMemoryUser({ name, email, password, country, preferredLanguage }) {
+  async createInMemoryUser({ name, email, phone, phoneNumber, password, country, preferredLanguage }) {
     const id = "6720" + Math.random().toString(16).substring(2, 10).padEnd(20, "0");
     const passwordHash = await bcrypt.hash(password, 10);
     const countryObj = typeof country === "string" 
       ? { code: country.toUpperCase(), name: country, subRegion: country } 
       : (country || { code: "GB", name: "United Kingdom", subRegion: "Great Britain" });
 
+    const cleanPhone = (phone || phoneNumber || "").trim();
+
     const newUser = {
       _id: id,
       id,
       name,
       email: email.toLowerCase().trim(),
+      phone: cleanPhone || undefined,
       passwordHash,
       country: countryObj,
       preferredLanguage: preferredLanguage || "en",
@@ -157,6 +202,10 @@ module.exports = {
 
     inMemoryUsers.set(newUser.email, newUser);
     inMemoryUsers.set(id, newUser);
+    if (cleanPhone) {
+      inMemoryUsers.set(cleanPhone, newUser);
+      inMemoryUsers.set(cleanPhone.replace(/\s+/g, ""), newUser);
+    }
     return newUser;
   },
 };

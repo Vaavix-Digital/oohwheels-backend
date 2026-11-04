@@ -67,13 +67,20 @@ async function runAuthTests() {
   const healthRes = await mockRequest({ method: "GET", url: "/api/v1/health" });
   console.log("1. GET /api/v1/health -> Status:", healthRes.status, healthRes.data?.message);
 
-  // 2. Demo User Login
+  // 2. Demo User Login (Email)
   const loginRes = await mockRequest(
     { method: "POST", url: "/api/v1/auth/login" },
     { email: "learner@oohwheels.com", password: "password123" }
   );
-  console.log("2. POST /api/v1/auth/login -> Status:", loginRes.status, "Token:", loginRes.data?.token ? "Generated ✅" : "Failed ❌");
+  console.log("2. POST /api/v1/auth/login (Email) -> Status:", loginRes.status, "Token:", loginRes.data?.token ? "Generated ✅" : "Failed ❌");
   const token = loginRes.data?.token;
+
+  // 2b. Demo User Login (Phone Number matching UI)
+  const phoneLoginRes = await mockRequest(
+    { method: "POST", url: "/api/v1/auth/login" },
+    { emailOrPhone: "07700 900123", password: "password123" }
+  );
+  console.log("2b. POST /api/v1/auth/login (Phone) -> Status:", phoneLoginRes.status, "User:", phoneLoginRes.data?.user?.name, "✅");
 
   // 3. GET /api/v1/users/me (Protected with JWT)
   const meRes = await mockRequest({
@@ -110,7 +117,9 @@ async function runAuthTests() {
     {
       name: "Sam Speed",
       email: uniqueEmail,
+      phoneNumber: `+4477009${Math.floor(Math.random() * 89999 + 10000)}`,
       password: "password123",
+      confirmPassword: "password123",
       country: "United Kingdom",
     }
   );

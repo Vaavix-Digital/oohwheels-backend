@@ -1,0 +1,597 @@
+{
+  "info": {
+    "_postman_id": "b182d95e-1823-41bb-9428-11883390f1ea",
+    "name": "OohWheels - Practice Section API",
+    "description": "Complete Postman collection for testing the OohWheels Practice Section, including 8 topic drills, interactive 3-step structured practice engine, instant feedback, flash signs, video perception library, and daily challenge.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5020/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Login (Obtain Token First)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.token) {",
+              "        pm.collectionVariables.set(\"token\", jsonData.token);",
+              "        console.log(\"✅ Practice Auth Token auto-saved:\", jsonData.token);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emailOrPhone\": \"learner@oohwheels.com\",\n  \"password\": \"password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Logs in with the demo account and auto-saves the Bearer token for all practice requests in this collection."
+      },
+      "response": []
+    },
+    {
+      "name": "1. Practice Home Overview",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/overview",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "overview"
+          ]
+        },
+        "description": "Returns the 8 practice modes cards (Practice by topic, Weak spots, Quick 10, Saved questions, Mistakes bank, Flash signs, Video library, Daily challenge) and topic mastery summary."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Practice Topics List (All 8 Topics)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/topics?filter=all",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "topics"
+          ],
+          "query": [
+            {
+              "key": "filter",
+              "value": "all",
+              "description": "Options: all | weak | new | saved"
+            }
+          ]
+        },
+        "description": "Lists the 8 DVSA practice topics with mastery percentages, question count, and color indicators."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Search & Filter Topics",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/topics?search=signs&filter=all",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "topics"
+          ],
+          "query": [
+            {
+              "key": "search",
+              "value": "signs"
+            },
+            {
+              "key": "filter",
+              "value": "all"
+            }
+          ]
+        },
+        "description": "Searches topics by keyword."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Topic Lesson Intro (3-Step Modal)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/topics/road-signs/intro",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "topics",
+            "road-signs",
+            "intro"
+          ]
+        },
+        "description": "Returns the 3-step modal intro screen before starting a lesson (Step 1: Learn key rule, Step 2: Answer quick questions, Step 3: Watch animated scene) + reward badge (+30 XP)."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Start Practice Session (Step 1: Key Rule)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.data && jsonData.data.sessionId) {",
+              "        pm.collectionVariables.set(\"sessionId\", jsonData.data.sessionId);",
+              "        console.log(\"✅ Practice Session ID auto-saved:\", jsonData.data.sessionId);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"topicKey\": \"road-signs\",\n  \"questionCount\": 10,\n  \"instantFeedback\": true,\n  \"includeVideos\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/practice/start",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "start"
+          ]
+        },
+        "description": "Initializes an interactive practice drill. Returns the Step 1 Rule of the Road text & audio url, and auto-saves {{sessionId}} for subsequent steps."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Advance Session to Step 2 (Get Questions)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/sessions/{{sessionId}}/step",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "sessions",
+            "{{sessionId}}",
+            "step"
+          ]
+        },
+        "description": "Moves the session from Step 1 (Rule read) to Step 2 (Questions). Returns the array of interactive questions for this drill."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Submit Answer (Instant Feedback)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"questionId\": \"q_road_signs_01\",\n  \"selectedAnswer\": \"B\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/practice/sessions/{{sessionId}}/answers",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "sessions",
+            "{{sessionId}}",
+            "answers"
+          ]
+        },
+        "description": "Submits user's choice for a question during practice. When instantFeedback is true, returns whether answer is correct, the official explanation, and next question index."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Complete Practice Session (Awards XP & Gems)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/sessions/{{sessionId}}/complete",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "sessions",
+            "{{sessionId}}",
+            "complete"
+          ]
+        },
+        "description": "Completes practice session, calculates accuracy %, awards bonus XP and gems, and updates topic mastery."
+      },
+      "response": []
+    },
+    {
+      "name": "9. Quick 10 Drill",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/quick-10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "quick-10"
+          ]
+        },
+        "description": "Fetches 10 rapid practice questions across all categories."
+      },
+      "response": []
+    },
+    {
+      "name": "10. Weak Spots Mode",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/weak-spots",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "weak-spots"
+          ]
+        },
+        "description": "Returns questions tailored specifically to the user's past incorrect answers."
+      },
+      "response": []
+    },
+    {
+      "name": "11. Mistakes Bank",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/mistakes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "mistakes"
+          ]
+        },
+        "description": "Lists all unresolved questions the user previously got wrong."
+      },
+      "response": []
+    },
+    {
+      "name": "12. Flash Signs (Road Sign Swipe Cards)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/flash-signs",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "flash-signs"
+          ]
+        },
+        "description": "Returns flash sign flashcards with image URLs, meanings, and shapes."
+      },
+      "response": []
+    },
+    {
+      "name": "13. Video Library (Hazard Perception)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/videos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "videos"
+          ]
+        },
+        "description": "Returns the video library of animated driving scenarios and hazard perception clips."
+      },
+      "response": []
+    },
+    {
+      "name": "14. Daily Challenge Scenario",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/practice/daily-challenge",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "daily-challenge"
+          ]
+        },
+        "description": "Fetches today's featured daily scenario for +30 bonus XP."
+      },
+      "response": []
+    },
+    {
+      "name": "15. Submit Daily Challenge",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"questionId\": \"q_road_signs_01\",\n  \"selectedAnswer\": \"B\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/practice/daily-challenge/submit",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "practice",
+            "daily-challenge",
+            "submit"
+          ]
+        },
+        "description": "Submits the answer for the daily challenge, verifies it, and awards +30 XP."
+      },
+      "response": []
+    }
+  ]
+}

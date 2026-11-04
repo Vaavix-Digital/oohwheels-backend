@@ -91,7 +91,7 @@ oohwheels/
 ### 1. Environment Setup
 Check `.env`:
 ```env
-PORT=5000
+PORT=5020
 NODE_ENV=development
 MONGODB_URI=mongodb://127.0.0.1:27017/oohwheels
 JWT_SECRET=your_super_long_jwt_secret_min_32_chars

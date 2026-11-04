@@ -1,0 +1,495 @@
+{
+  "info": {
+    "_postman_id": "f29b47e1-8930-4e2b-b9d4-1a387532ac10",
+    "name": "OohWheels - Admin Panel API",
+    "description": "Complete Postman collection for the OohWheels Admin Panel. Allows administrators to manage driving theory questions, road signs (flash signs), hazard perception video clips, practice topic rules of the road, and learner accounts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5020/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "questionId",
+      "value": "q_road_signs_01",
+      "type": "string"
+    },
+    {
+      "key": "newQuestionId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Admin Login (Obtain Admin Token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.token) {",
+              "        pm.collectionVariables.set(\"adminToken\", jsonData.token);",
+              "        console.log(\"✅ Admin Token auto-saved:\", jsonData.token);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emailOrPhone\": \"admin@oohwheels.com\",\n  \"password\": \"adminpassword123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Logs in with built-in administrator account (admin@oohwheels.com) and auto-saves the admin authorization token."
+      },
+      "response": []
+    },
+    {
+      "name": "1. Admin Dashboard Stats",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/dashboard",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "dashboard"
+          ]
+        },
+        "description": "Returns high-level statistics for the admin dashboard: total questions, road signs, video clips, registered learners, pass rates, and recent activity."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Questions - List All (Search & Filter)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/questions?page=1&limit=20&search=",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "questions"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "search",
+              "value": ""
+            }
+          ]
+        },
+        "description": "Retrieves paginated list of all questions with answers, explanations, and category filters."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Questions - Get Question by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/questions/{{questionId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "questions",
+            "{{questionId}}"
+          ]
+        },
+        "description": "Retrieves the full details of a specific question by ID."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Questions - Create New Driving Question",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.data && jsonData.data.id) {",
+              "        pm.collectionVariables.set(\"newQuestionId\", jsonData.data.id);",
+              "        console.log(\"✅ Newly Created Question ID auto-saved:\", jsonData.data.id);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"questionText\": \"What is the minimum legal tyre tread depth for cars in the UK?\",\n  \"options\": [\n    { \"key\": \"A\", \"text\": \"1.0 mm across the entire tyre\" },\n    { \"key\": \"B\", \"text\": \"1.6 mm across the central three-quarters\" },\n    { \"key\": \"C\", \"text\": \"2.0 mm across the outer edge\" },\n    { \"key\": \"D\", \"text\": \"2.5 mm across any part\" }\n  ],\n  \"correctAnswer\": \"B\",\n  \"explanation\": \"UK law requires a minimum tyre tread depth of 1.6 mm throughout a continuous band comprising the central three-quarters of the breadth of the tread.\",\n  \"category\": \"Vehicle Safety\",\n  \"difficulty\": \"easy\",\n  \"imageUrl\": null\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/questions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "questions"
+          ]
+        },
+        "description": "Adds a new official DVSA question into the app's question bank."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Questions - Update Question",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"difficulty\": \"medium\",\n  \"explanation\": \"Updated explanation with UK Highway Code reference.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/questions/{{newQuestionId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "questions",
+            "{{newQuestionId}}"
+          ]
+        },
+        "description": "Updates text, options, category, or explanation of an existing question."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Questions - Delete Question",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/questions/{{newQuestionId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "questions",
+            "{{newQuestionId}}"
+          ]
+        },
+        "description": "Removes a question from the question bank."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Road Signs - List All",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/flash-signs",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "flash-signs"
+          ]
+        },
+        "description": "Lists all road signs in the flash cards library."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Road Signs - Add New Sign",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Stop and Give Way\",\n  \"category\": \"prohibition\",\n  \"imageUrl\": \"https://assets.oohwheels.app/signs/stop-sign.png\",\n  \"meaning\": \"You MUST stop before the solid white line and give way to traffic on the main road.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/flash-signs",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "flash-signs"
+          ]
+        },
+        "description": "Adds a new road sign to the flash cards library."
+      },
+      "response": []
+    },
+    {
+      "name": "9. Hazard Videos - List All",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/videos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "videos"
+          ]
+        },
+        "description": "Lists all hazard perception video clips."
+      },
+      "response": []
+    },
+    {
+      "name": "10. Hazard Videos - Add Video Clip",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Cyclist at Left Turn Junction\",\n  \"description\": \"Watch for a cyclist approaching in your blind spot before making a left turn.\",\n  \"durationSeconds\": 55,\n  \"videoUrl\": \"https://assets.oohwheels.app/videos/cyclist-turn.mp4\",\n  \"thumbnailUrl\": \"https://assets.oohwheels.app/thumbnails/cyclist.jpg\",\n  \"topicKey\": \"vulnerable-road-users\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/videos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "videos"
+          ]
+        },
+        "description": "Adds an animated video clip to the Hazard Perception video library."
+      },
+      "response": []
+    },
+    {
+      "name": "11. Practice Topics - List All Rules",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/topics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "topics"
+          ]
+        },
+        "description": "Lists the 8 practice topics with their rules of the road, audio narration links, and XP rewards."
+      },
+      "response": []
+    },
+    {
+      "name": "12. Practice Topics - Update Topic Rule",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Warning signs are triangular with a red border. They warn you about dangers ahead such as junctions, bends, and pedestrian crossings.\",\n  \"xpReward\": 35\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/topics/road-signs",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "topics",
+            "road-signs"
+          ]
+        },
+        "description": "Edits a practice topic's introductory rule of the road."
+      },
+      "response": []
+    },
+    {
+      "name": "13. User Management - List Learners",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "users"
+          ]
+        },
+        "description": "Lists registered learners, their streak, XP, gems, and registration dates."
+      },
+      "response": []
+    }
+  ]
+}
