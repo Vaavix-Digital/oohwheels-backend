@@ -19,6 +19,9 @@ const errorMiddleware = require("./middleware/errorMiddleware");
 
 const app = express();
 
+// Trust reverse proxy (Nginx / Cloudflare / PM2) so express-rate-limit correctly resolves client IP
+app.set("trust proxy", 1);
+
 // ─── Security ────────────────────────────────────────────────────────────────
 app.use(helmet());
 

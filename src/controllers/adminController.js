@@ -189,6 +189,47 @@ exports.getQuestions = async (req, res, next) => {
 
     let list = [...mockPractice.mockQuestions];
 
+    // Read from Neon PostgreSQL if configured
+    if (isNeonConnected()) {
+      try {
+        let sql = "SELECT * FROM questions WHERE 1=1";
+        const params = [];
+        if (category && category !== "All Categories") {
+          params.push(`%${category.toLowerCase()}%`);
+          sql += ` AND LOWER(category) LIKE $${params.length}`;
+        }
+        if (difficulty) {
+          params.push(difficulty.toLowerCase());
+          sql += ` AND LOWER(difficulty) = $${params.length}`;
+        }
+        if (search.trim()) {
+          params.push(`%${search.toLowerCase().trim()}%`);
+          sql += ` AND (LOWER(question_text) LIKE $${params.length} OR LOWER(explanation) LIKE $${params.length})`;
+        }
+        sql += " ORDER BY created_at DESC";
+        const dbRes = await neon.query(sql, params);
+        if (dbRes.rows.length > 0) {
+          list = dbRes.rows.map((r) => ({
+            _id: r.id,
+            id: r.id,
+            questionText: r.question_text,
+            options: typeof r.options === "string" ? JSON.parse(r.options) : r.options,
+            correctAnswer: r.correct_answer,
+            explanation: r.explanation,
+            category: r.category,
+            difficulty: r.difficulty,
+            imageUrl: r.image_url,
+            videoUrl: r.video_url,
+            videoThumbnailUrl: r.video_thumbnail_url,
+            hasVideo: r.has_video,
+            createdAt: r.created_at,
+          }));
+        }
+      } catch (dbErr) {
+        // Fall back to in-memory list
+      }
+    }
+
     if (category && category !== "All Categories") {
       const catNorm = category.toLowerCase().replace(/[-_]/g, " ").trim();
       list = list.filter((q) => {
@@ -279,6 +320,33 @@ exports.createQuestion = async (req, res, next) => {
       videoUrl: videoUrl || animationUrl || null,
       videoThumbnailUrl,
     });
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query(
+          `INSERT INTO questions (
+            id, question_text, options, correct_answer, explanation, category, difficulty, image_url, video_url, video_thumbnail_url, has_video, country_code
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'GB')
+          ON CONFLICT (id) DO UPDATE SET
+            question_text = $2, options = $3, correct_answer = $4, explanation = $5, category = $6, difficulty = $7, image_url = $8, video_url = $9, video_thumbnail_url = $10, has_video = $11`,
+          [
+            newQ.id || newQ._id,
+            newQ.questionText,
+            JSON.stringify(newQ.options),
+            newQ.correctAnswer,
+            newQ.explanation,
+            newQ.category,
+            newQ.difficulty,
+            newQ.imageUrl,
+            newQ.videoUrl,
+            newQ.videoThumbnailUrl,
+            Boolean(newQ.videoUrl),
+          ]
+        );
+      } catch (dbErr) {
+        console.warn("Neon question insert fallback:", dbErr.message);
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -521,6 +589,39 @@ exports.updateQuestion = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Question not found." });
     }
 
+    if (isNeonConnected()) {
+      try {
+        await neon.query(
+          `UPDATE questions SET
+            question_text = COALESCE($2, question_text),
+            options = COALESCE($3, options),
+            correct_answer = COALESCE($4, correct_answer),
+            explanation = COALESCE($5, explanation),
+            category = COALESCE($6, category),
+            difficulty = COALESCE($7, difficulty),
+            image_url = COALESCE($8, image_url),
+            video_url = COALESCE($9, video_url),
+            has_video = COALESCE($10, has_video),
+            updated_at = NOW()
+          WHERE id = $1`,
+          [
+            req.params.id,
+            req.body.questionText || null,
+            req.body.options ? JSON.stringify(req.body.options) : null,
+            req.body.correctAnswer || null,
+            req.body.explanation || null,
+            req.body.category || null,
+            req.body.difficulty || null,
+            req.body.imageUrl !== undefined ? req.body.imageUrl : null,
+            req.body.videoUrl !== undefined ? req.body.videoUrl : null,
+            req.body.videoUrl !== undefined ? Boolean(req.body.videoUrl) : null,
+          ]
+        );
+      } catch (dbErr) {
+        console.warn("Neon question update fallback:", dbErr.message);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: "Question updated successfully.",
@@ -536,6 +637,14 @@ exports.deleteQuestion = async (req, res, next) => {
     const ok = mockPractice.deleteQuestion(req.params.id);
     if (!ok) {
       return res.status(404).json({ success: false, message: "Question not found." });
+    }
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query("DELETE FROM questions WHERE id = $1", [req.params.id]);
+      } catch (dbErr) {
+        console.warn("Neon question delete fallback:", dbErr.message);
+      }
     }
 
     res.status(200).json({ success: true, message: "Question deleted successfully from question bank." });

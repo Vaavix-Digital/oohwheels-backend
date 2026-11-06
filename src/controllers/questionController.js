@@ -7,6 +7,42 @@ exports.getQuestions = async (req, res, next) => {
     const { category, difficulty, page = 1, limit = 20 } = req.query;
     let questions = mockPractice.mockQuestions || [];
 
+    if (neon.isNeonConfigured()) {
+      try {
+        let sql = "SELECT * FROM questions WHERE is_published = TRUE";
+        const params = [];
+        if (category) {
+          params.push(`%${category.toLowerCase()}%`);
+          sql += ` AND LOWER(category) LIKE $${params.length}`;
+        }
+        if (difficulty) {
+          params.push(difficulty.toLowerCase());
+          sql += ` AND LOWER(difficulty) = $${params.length}`;
+        }
+        sql += " ORDER BY created_at ASC";
+        const dbRes = await neon.query(sql, params);
+        if (dbRes.rows.length > 0) {
+          questions = dbRes.rows.map((r) => ({
+            _id: r.id,
+            id: r.id,
+            questionText: r.question_text,
+            options: typeof r.options === "string" ? JSON.parse(r.options) : r.options,
+            correctAnswer: r.correct_answer,
+            explanation: r.explanation,
+            category: r.category,
+            difficulty: r.difficulty,
+            imageUrl: r.image_url,
+            videoUrl: r.video_url,
+            videoThumbnailUrl: r.video_thumbnail_url,
+            hasVideo: r.has_video,
+            createdAt: r.created_at,
+          }));
+        }
+      } catch (dbErr) {
+        // Fall back to in-memory list
+      }
+    }
+
     if (category) {
       const catNorm = category.toLowerCase().replace(/[-_]/g, " ").trim();
       questions = questions.filter((q) => {
