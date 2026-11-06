@@ -42,10 +42,24 @@ const allowedOrigins = (process.env.FRONTEND_URL || "")
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (Postman, mobile apps, etc.)
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // Explicitly allowed in .env or wildcard
+      if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
+
+      // Allow all localhost and 127.0.0.1 ports (Flutter web dev, Vite, React, etc.)
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      // In non-production environments, allow any dev origin
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
       callback(new Error(`CORS: Origin ${origin} not allowed`));
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
