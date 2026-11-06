@@ -136,8 +136,16 @@ exports.getDashboardStats = async (req, res, next) => {
 
     if (isNeonConnected()) {
       try {
-        const uRes = await neon.query("SELECT COUNT(*) FROM users");
+        const [uRes, qRes, sRes, vRes] = await Promise.all([
+          neon.query("SELECT COUNT(*) FROM users"),
+          neon.query("SELECT COUNT(*) FROM questions"),
+          neon.query("SELECT COUNT(*) FROM flash_signs"),
+          neon.query("SELECT COUNT(*) FROM videos"),
+        ]);
         totalUsers = parseInt(uRes.rows[0].count) || totalUsers;
+        totalQuestions = parseInt(qRes.rows[0].count) || totalQuestions;
+        totalFlashSigns = parseInt(sRes.rows[0].count) || totalFlashSigns;
+        totalVideos = parseInt(vRes.rows[0].count) || totalVideos;
       } catch (e) {}
     }
 
@@ -273,9 +281,33 @@ exports.getQuestions = async (req, res, next) => {
 
 exports.getQuestionById = async (req, res, next) => {
   try {
-    const question = mockPractice.mockQuestions.find(
+    let question = mockPractice.mockQuestions.find(
       (q) => q._id === req.params.id || q.id === req.params.id
     );
+
+    if (isNeonConnected()) {
+      try {
+        const dbRes = await neon.query("SELECT * FROM questions WHERE id = $1", [req.params.id]);
+        if (dbRes.rows.length > 0) {
+          const r = dbRes.rows[0];
+          question = {
+            _id: r.id,
+            id: r.id,
+            questionText: r.question_text,
+            options: typeof r.options === "string" ? JSON.parse(r.options) : r.options,
+            correctAnswer: r.correct_answer,
+            explanation: r.explanation,
+            category: r.category,
+            difficulty: r.difficulty,
+            imageUrl: r.image_url,
+            videoUrl: r.video_url,
+            videoThumbnailUrl: r.video_thumbnail_url,
+            hasVideo: r.has_video,
+            createdAt: r.created_at,
+          };
+        }
+      } catch (e) {}
+    }
 
     if (!question) {
       return res.status(404).json({ success: false, message: "Question not found in database." });
@@ -387,6 +419,36 @@ exports.bulkImportQuestions = async (req, res, next) => {
       }
     }
 
+    if (isNeonConnected()) {
+      for (const item of added) {
+        try {
+          await neon.query(
+            `INSERT INTO questions (
+              id, question_text, options, correct_answer, explanation, category, topic_key, difficulty, image_url, video_url, video_thumbnail_url, has_video, country_code
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'GB')
+            ON CONFLICT (id) DO UPDATE SET
+              question_text = $2, options = $3, correct_answer = $4, explanation = $5, category = $6, topic_key = $7, difficulty = $8, image_url = $9, video_url = $10, video_thumbnail_url = $11, has_video = $12`,
+            [
+              item.id || item._id,
+              item.questionText,
+              JSON.stringify(item.options),
+              item.correctAnswer,
+              item.explanation,
+              item.category,
+              (item.category || "road-signs").toLowerCase().replace(/[^a-z0-9]/g, "-"),
+              item.difficulty,
+              item.imageUrl,
+              item.videoUrl,
+              item.videoThumbnailUrl,
+              Boolean(item.videoUrl),
+            ]
+          );
+        } catch (dbErr) {
+          console.warn("Neon bulk insert fallback:", dbErr.message);
+        }
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: `Successfully imported ${added.length} questions into the DVSA bank.`,
@@ -476,6 +538,36 @@ exports.importTextQuestions = async (req, res, next) => {
 
     // Add all parsed questions to store
     const added = parsedQuestions.map((q) => mockPractice.addQuestion(q));
+
+    if (isNeonConnected()) {
+      for (const item of added) {
+        try {
+          await neon.query(
+            `INSERT INTO questions (
+              id, question_text, options, correct_answer, explanation, category, topic_key, difficulty, image_url, video_url, video_thumbnail_url, has_video, country_code
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'GB')
+            ON CONFLICT (id) DO UPDATE SET
+              question_text = $2, options = $3, correct_answer = $4, explanation = $5, category = $6, topic_key = $7, difficulty = $8, image_url = $9, video_url = $10, video_thumbnail_url = $11, has_video = $12`,
+            [
+              item.id || item._id,
+              item.questionText,
+              JSON.stringify(item.options),
+              item.correctAnswer,
+              item.explanation,
+              item.category,
+              (item.category || "road-signs").toLowerCase().replace(/[^a-z0-9]/g, "-"),
+              item.difficulty,
+              item.imageUrl,
+              item.videoUrl,
+              item.videoThumbnailUrl,
+              Boolean(item.videoUrl),
+            ]
+          );
+        } catch (dbErr) {
+          console.warn("Neon text import insert fallback:", dbErr.message);
+        }
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -568,6 +660,16 @@ exports.uploadImage = async (req, res, next) => {
     // If questionId is supplied, automatically attach image to that question
     if (questionId) {
       mockPractice.updateQuestion(questionId, { imageUrl: fullUrl });
+      if (isNeonConnected()) {
+        try {
+          await neon.query(
+            "UPDATE questions SET image_url = $1, updated_at = NOW() WHERE id = $2",
+            [fullUrl, questionId]
+          );
+        } catch (dbErr) {
+          console.warn("Neon question image update fallback:", dbErr.message);
+        }
+      }
     }
 
     res.status(201).json({
@@ -659,12 +761,41 @@ exports.getFlashSigns = async (req, res, next) => {
     const { category, search } = req.query;
     let signs = [...mockPractice.mockFlashSigns];
 
-    if (category) {
-      signs = signs.filter((s) => s.category.toLowerCase() === category.toLowerCase());
+    if (isNeonConnected()) {
+      try {
+        let sql = "SELECT * FROM flash_signs WHERE 1=1";
+        const params = [];
+        if (category && category !== "All Signs") {
+          params.push(category.toLowerCase());
+          sql += ` AND LOWER(category) = $${params.length}`;
+        }
+        if (search) {
+          params.push(`%${search.toLowerCase().trim()}%`);
+          sql += ` AND (LOWER(title) LIKE $${params.length} OR LOWER(meaning) LIKE $${params.length})`;
+        }
+        sql += " ORDER BY created_at ASC";
+        const dbRes = await neon.query(sql, params);
+        if (dbRes.rows.length > 0) {
+          signs = dbRes.rows.map((r) => ({
+            _id: r.id,
+            id: r.id,
+            title: r.title,
+            name: r.title,
+            meaning: r.meaning,
+            category: r.category,
+            shape: r.shape,
+            imageUrl: r.image_url,
+          }));
+        }
+      } catch (e) {}
+    }
+
+    if (category && category !== "All Signs") {
+      signs = signs.filter((s) => (s.category || "").toLowerCase() === category.toLowerCase());
     }
     if (search) {
       const q = search.toLowerCase();
-      signs = signs.filter((s) => s.name.toLowerCase().includes(q) || s.meaning.toLowerCase().includes(q));
+      signs = signs.filter((s) => (s.name || s.title || "").toLowerCase().includes(q) || (s.meaning || "").toLowerCase().includes(q));
     }
 
     res.status(200).json({ success: true, total: signs.length, data: signs });
@@ -675,12 +806,24 @@ exports.getFlashSigns = async (req, res, next) => {
 
 exports.createFlashSign = async (req, res, next) => {
   try {
-    const { name, category, imageUrl, meaning } = req.body;
-    if (!name || !meaning) {
-      return res.status(400).json({ success: false, message: "name and meaning are required." });
+    const { name, title, category, imageUrl, meaning, shape } = req.body;
+    const signTitle = title || name;
+    if (!signTitle || !meaning) {
+      return res.status(400).json({ success: false, message: "title/name and meaning are required." });
     }
 
-    const sign = mockPractice.addFlashSign({ name, category, imageUrl, meaning });
+    const sign = mockPractice.addFlashSign({ title: signTitle, name: signTitle, category: category || "Warning", imageUrl, meaning, shape });
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query(
+          `INSERT INTO flash_signs (id, title, meaning, category, shape, image_url, country_code)
+           VALUES ($1, $2, $3, $4, $5, $6, 'GB')`,
+          [sign.id || sign._id, signTitle, meaning, category || "Warning", shape || "circle", imageUrl || null]
+        );
+      } catch (e) {}
+    }
+
     res.status(201).json({ success: true, message: "Road sign added successfully.", data: sign });
   } catch (error) {
     next(error);
@@ -693,6 +836,21 @@ exports.updateFlashSign = async (req, res, next) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: "Road sign not found." });
     }
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query(
+          `UPDATE flash_signs SET
+            title = COALESCE($2, title),
+            meaning = COALESCE($3, meaning),
+            category = COALESCE($4, category),
+            image_url = COALESCE($5, image_url)
+           WHERE id = $1`,
+          [req.params.id, req.body.title || req.body.name || null, req.body.meaning || null, req.body.category || null, req.body.imageUrl || null]
+        );
+      } catch (e) {}
+    }
+
     res.status(200).json({ success: true, message: "Road sign updated.", data: updated });
   } catch (error) {
     next(error);
@@ -705,6 +863,13 @@ exports.deleteFlashSign = async (req, res, next) => {
     if (!ok) {
       return res.status(404).json({ success: false, message: "Road sign not found." });
     }
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query("DELETE FROM flash_signs WHERE id = $1", [req.params.id]);
+      } catch (e) {}
+    }
+
     res.status(200).json({ success: true, message: "Road sign deleted successfully." });
   } catch (error) {
     next(error);
@@ -714,7 +879,27 @@ exports.deleteFlashSign = async (req, res, next) => {
 // ─── 4. Hazard Perception Videos Management ──────────────────────────────────
 exports.getVideos = async (req, res, next) => {
   try {
-    res.status(200).json({ success: true, total: mockPractice.mockVideos.length, data: mockPractice.mockVideos });
+    let videos = [...mockPractice.mockVideos];
+
+    if (isNeonConnected()) {
+      try {
+        const dbRes = await neon.query("SELECT * FROM videos ORDER BY created_at ASC");
+        if (dbRes.rows.length > 0) {
+          videos = dbRes.rows.map((r) => ({
+            _id: r.id,
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            videoUrl: r.video_url,
+            thumbnailUrl: r.thumbnail_url,
+            durationSeconds: r.duration_seconds,
+            topicKey: r.topic_key,
+          }));
+        }
+      } catch (e) {}
+    }
+
+    res.status(200).json({ success: true, total: videos.length, data: videos });
   } catch (error) {
     next(error);
   }
@@ -728,6 +913,17 @@ exports.createVideo = async (req, res, next) => {
     }
 
     const video = mockPractice.addVideo({ title, description, durationSeconds, videoUrl, thumbnailUrl, topicKey });
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query(
+          `INSERT INTO videos (id, title, description, video_url, thumbnail_url, duration_seconds, topic_key, country_code)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'GB')`,
+          [video.id || video._id, title, description || "", videoUrl, thumbnailUrl || null, durationSeconds || 45, topicKey || "road-signs"]
+        );
+      } catch (e) {}
+    }
+
     res.status(201).json({ success: true, message: "Hazard video clip added.", data: video });
   } catch (error) {
     next(error);
@@ -740,6 +936,22 @@ exports.updateVideo = async (req, res, next) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: "Video clip not found." });
     }
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query(
+          `UPDATE videos SET
+            title = COALESCE($2, title),
+            description = COALESCE($3, description),
+            video_url = COALESCE($4, video_url),
+            thumbnail_url = COALESCE($5, thumbnail_url),
+            duration_seconds = COALESCE($6, duration_seconds)
+           WHERE id = $1`,
+          [req.params.id, req.body.title || null, req.body.description || null, req.body.videoUrl || null, req.body.thumbnailUrl || null, req.body.durationSeconds || null]
+        );
+      } catch (e) {}
+    }
+
     res.status(200).json({ success: true, message: "Video clip updated.", data: updated });
   } catch (error) {
     next(error);
@@ -752,6 +964,13 @@ exports.deleteVideo = async (req, res, next) => {
     if (!ok) {
       return res.status(404).json({ success: false, message: "Video clip not found." });
     }
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query("DELETE FROM videos WHERE id = $1", [req.params.id]);
+      } catch (e) {}
+    }
+
     res.status(200).json({ success: true, message: "Video clip deleted." });
   } catch (error) {
     next(error);
@@ -761,7 +980,26 @@ exports.deleteVideo = async (req, res, next) => {
 // ─── 5. Practice Topics & Rules ──────────────────────────────────────────────
 exports.getTopics = async (req, res, next) => {
   try {
-    res.status(200).json({ success: true, data: mockPractice.mockTopics });
+    let topics = [...mockPractice.mockTopics];
+
+    if (isNeonConnected()) {
+      try {
+        const dbRes = await neon.query("SELECT * FROM practice_topics ORDER BY key ASC");
+        if (dbRes.rows.length > 0) {
+          topics = dbRes.rows.map((r) => ({
+            key: r.key,
+            name: r.name,
+            tag: r.tag,
+            text: r.rule_text,
+            audioUrl: r.audio_url,
+            xpReward: r.xp_reward,
+            totalQuestions: r.total_questions,
+          }));
+        }
+      } catch (e) {}
+    }
+
+    res.status(200).json({ success: true, data: topics });
   } catch (error) {
     next(error);
   }
@@ -774,6 +1012,21 @@ exports.updateTopic = async (req, res, next) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: `Topic '${key}' not found.` });
     }
+
+    if (isNeonConnected()) {
+      try {
+        await neon.query(
+          `UPDATE practice_topics SET
+            name = COALESCE($2, name),
+            tag = COALESCE($3, tag),
+            rule_text = COALESCE($4, rule_text),
+            audio_url = COALESCE($5, audio_url)
+           WHERE key = $1`,
+          [key, req.body.name || null, req.body.tag || null, req.body.text || req.body.ruleText || null, req.body.audioUrl || null]
+        );
+      } catch (e) {}
+    }
+
     res.status(200).json({ success: true, message: "Topic rule updated.", data: updated });
   } catch (error) {
     next(error);
