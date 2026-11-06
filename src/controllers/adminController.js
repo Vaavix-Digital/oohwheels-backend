@@ -440,6 +440,65 @@ exports.load100PackQuestions = async (req, res, next) => {
   }
 };
 
+// ─── Upload Image for Questions & Road Signs ──────────────────────────────────
+exports.uploadImage = async (req, res, next) => {
+  try {
+    const { imageBase64, fileName, questionId } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide 'imageBase64' (data URL or base64 string).",
+      });
+    }
+
+    let ext = "png";
+    let base64Data = imageBase64;
+
+    if (imageBase64.includes(";base64,")) {
+      const parts = imageBase64.split(";base64,");
+      const mimeMatch = parts[0].match(/:(.*?)$/);
+      const mime = mimeMatch ? mimeMatch[1] : "";
+      base64Data = parts[1];
+      if (mime.includes("jpeg") || mime.includes("jpg")) ext = "jpg";
+      else if (mime.includes("webp")) ext = "webp";
+      else if (mime.includes("svg")) ext = "svg";
+      else ext = "png";
+    }
+
+    const fs = require("fs");
+    const path = require("path");
+    const uploadsDir = path.join(__dirname, "../../public/uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const safeName = (fileName || `q_img_${Date.now()}`).replace(/[^a-zA-Z0-9_\-\.]/g, "_");
+    const fileFinalName = safeName.endsWith(`.${ext}`) ? safeName : `${safeName}.${ext}`;
+    const filePath = path.join(uploadsDir, fileFinalName);
+
+    fs.writeFileSync(filePath, Buffer.from(base64Data, "base64"));
+
+    const protocol = req.protocol || "http";
+    const host = req.get("host") || "localhost:5020";
+    const fullUrl = `${protocol}://${host}/uploads/${fileFinalName}`;
+
+    // If questionId is supplied, automatically attach image to that question
+    if (questionId) {
+      mockPractice.updateQuestion(questionId, { imageUrl: fullUrl });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Question image uploaded successfully.",
+      imageUrl: fullUrl,
+      relativePath: `/uploads/${fileFinalName}`,
+      questionId: questionId || null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.updateQuestion = async (req, res, next) => {
   try {
     const updated = mockPractice.updateQuestion(req.params.id, req.body);

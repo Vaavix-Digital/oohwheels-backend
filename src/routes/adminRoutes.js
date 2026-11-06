@@ -20,6 +20,7 @@ router.post("/questions", adminController.createQuestion);
 router.post("/questions/bulk-import", adminController.bulkImportQuestions);
 router.post("/questions/import-text", adminController.importTextQuestions);
 router.post("/questions/load-100-pack", adminController.load100PackQuestions);
+router.post("/upload-image", adminController.uploadImage);
 router.put("/questions/:id", adminController.updateQuestion);
 router.delete("/questions/:id", adminController.deleteQuestion);
 
