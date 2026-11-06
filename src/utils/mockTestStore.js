@@ -1,5 +1,6 @@
 // In-memory mock store for Mock Tests Section
 // Powers zero-setup Postman testing and Flutter frontend integration
+const mockPractice = require("./mockPracticeStore");
 
 const mockQuestions = [
   {
@@ -94,13 +95,24 @@ function createAttempt({ userId, testType = "full", topicKey }) {
 
   const timeLimitEndsAt = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
 
+  const allAvailable = [
+    ...(mockPractice.mockQuestions || []),
+    ...mockQuestions,
+  ];
+  let pool = allAvailable;
+  if (topicKey) {
+    const keyLower = topicKey.toLowerCase().replace(/[-_]/g, " ");
+    const filtered = allAvailable.filter((q) => (q.category || "").toLowerCase().replace(/[-_]/g, " ").includes(keyLower));
+    if (filtered.length > 0) pool = filtered;
+  }
+
   // Generate question list based on templates
   const questions = [];
-  for (let i = 0; i < Math.min(questionCount, 15); i++) {
-    const template = mockQuestions[i % mockQuestions.length];
+  for (let i = 0; i < Math.min(questionCount, Math.max(15, pool.length)); i++) {
+    const template = pool[i % pool.length];
     questions.push({
       index: i + 1,
-      id: `${template.id}_${i + 1}`,
+      id: `${template.id || template._id}_${i + 1}`,
       questionText: `Q${i + 1}: ${template.questionText}`,
       options: template.options,
       imageUrl: template.imageUrl,
