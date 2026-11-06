@@ -248,7 +248,18 @@ exports.getQuestionById = async (req, res, next) => {
 
 exports.createQuestion = async (req, res, next) => {
   try {
-    const { questionText, options, correctAnswer, explanation, category, difficulty, imageUrl } = req.body;
+    const {
+      questionText,
+      options,
+      correctAnswer,
+      explanation,
+      category,
+      difficulty,
+      imageUrl,
+      videoUrl,
+      animationUrl,
+      videoThumbnailUrl,
+    } = req.body;
 
     if (!questionText || !correctAnswer) {
       return res.status(400).json({
@@ -265,6 +276,8 @@ exports.createQuestion = async (req, res, next) => {
       category,
       difficulty,
       imageUrl,
+      videoUrl: videoUrl || animationUrl || null,
+      videoThumbnailUrl,
     });
 
     res.status(201).json({
@@ -299,6 +312,8 @@ exports.bulkImportQuestions = async (req, res, next) => {
           category: q.category || q.topic || "Road Signs",
           difficulty: q.difficulty || "easy",
           imageUrl: q.imageUrl || null,
+          videoUrl: q.videoUrl || q.animationUrl || null,
+          videoThumbnailUrl: q.videoThumbnailUrl || null,
         });
         added.push(item);
       }

@@ -207,6 +207,7 @@ module.exports = {
   mockTopics: mockTopicsList,
   addQuestion(data) {
     const id = "q_" + Date.now().toString(36);
+    const videoUrl = data.videoUrl || data.animationUrl || null;
     const newQ = {
       _id: id,
       id,
@@ -220,6 +221,9 @@ module.exports = {
       correctAnswer: (data.correctAnswer || "A").toUpperCase(),
       explanation: data.explanation || "",
       imageUrl: data.imageUrl || null,
+      videoUrl: videoUrl,
+      videoThumbnailUrl: data.videoThumbnailUrl || data.thumbnailUrl || null,
+      hasVideo: Boolean(videoUrl),
       category: data.category || "Road Signs",
       difficulty: data.difficulty || "medium",
       createdAt: new Date(),
@@ -231,9 +235,12 @@ module.exports = {
     const idx = mockQuestions.findIndex((q) => q._id === id || q.id === id);
     if (idx === -1) return null;
     const existing = mockQuestions[idx];
+    const videoUrl = data.videoUrl !== undefined ? data.videoUrl : existing.videoUrl;
     const updated = {
       ...existing,
       ...data,
+      videoUrl: videoUrl || null,
+      hasVideo: Boolean(videoUrl),
       id: existing.id,
       _id: existing._id,
       updatedAt: new Date(),
