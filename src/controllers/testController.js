@@ -257,10 +257,41 @@ exports.startExam = async (req, res, next) => {
     const user = req.user;
     const { testType = "full", topicKey } = req.body;
 
+    let dbQuestions = null;
+    if (neon.isNeonConfigured()) {
+      try {
+        let sql = "SELECT * FROM questions WHERE is_published = TRUE";
+        const params = [];
+        if (topicKey) {
+          const keyNorm = topicKey.toLowerCase().replace(/[-_]/g, " ");
+          params.push(`%${keyNorm}%`);
+          sql += ` AND (LOWER(topic_key) LIKE $1 OR LOWER(category) LIKE $1)`;
+        }
+        sql += " ORDER BY RANDOM() LIMIT 50";
+        const resDb = await neon.query(sql, params);
+        if (resDb.rows.length > 0) {
+          dbQuestions = resDb.rows.map((r) => ({
+            id: r.id,
+            _id: r.id,
+            questionText: r.question_text,
+            options: typeof r.options === "string" ? JSON.parse(r.options) : r.options,
+            correctAnswer: r.correct_answer,
+            explanation: r.explanation,
+            category: r.category,
+            imageUrl: r.image_url,
+            videoUrl: r.video_url,
+            videoThumbnailUrl: r.video_thumbnail_url,
+            hasVideo: r.has_video,
+          }));
+        }
+      } catch (e) {}
+    }
+
     const attempt = mockTestStore.createAttempt({
       userId: user._id || user.id,
       testType,
       topicKey,
+      customQuestions: dbQuestions,
     });
 
     const cleanQuestions = attempt.questions.map(({ correctAnswer, explanation, ...q }) => q);

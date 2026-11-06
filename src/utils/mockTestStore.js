@@ -2,87 +2,11 @@
 // Powers zero-setup Postman testing and Flutter frontend integration
 const mockPractice = require("./mockPracticeStore");
 
-const mockQuestions = [
-  {
-    id: "q_mock_01",
-    _id: "q_mock_01",
-    questionText: "What does a triangular road sign with a red border indicate?",
-    options: [
-      { key: "A", text: "An order you must obey" },
-      { key: "B", text: "A hazard or warning ahead" },
-      { key: "C", text: "Information or directions" },
-      { key: "D", text: "A motorway regulation" },
-    ],
-    correctAnswer: "B",
-    explanation: "Triangular signs with red borders give warnings of hazards ahead.",
-    imageUrl: null,
-    category: "road-signs",
-  },
-  {
-    id: "q_mock_02",
-    _id: "q_mock_02",
-    questionText: "What does a circular sign with a red border mean?",
-    options: [
-      { key: "A", text: "Give information" },
-      { key: "B", text: "Give an order (prohibiting something)" },
-      { key: "C", text: "Warn of danger" },
-      { key: "D", text: "Indicate a tourist route" },
-    ],
-    correctAnswer: "B",
-    explanation: "Circular signs with red borders tell you what you must NOT do.",
-    imageUrl: null,
-    category: "road-signs",
-  },
-  {
-    id: "q_mock_03",
-    _id: "q_mock_03",
-    questionText: "What is the national speed limit on a single carriageway for cars in Great Britain?",
-    options: [
-      { key: "A", text: "50 mph" },
-      { key: "B", text: "60 mph" },
-      { key: "C", text: "70 mph" },
-      { key: "D", text: "80 mph" },
-    ],
-    correctAnswer: "B",
-    explanation: "The national speed limit for cars on single carriageways is 60 mph.",
-    imageUrl: null,
-    category: "speed-limits",
-  },
-  {
-    id: "q_mock_04",
-    _id: "q_mock_04",
-    questionText: "At a crossroads where no road is marked as priority, who has the right of way?",
-    options: [
-      { key: "A", text: "Traffic coming from the right" },
-      { key: "B", text: "Traffic on the wider road" },
-      { key: "C", text: "No one has priority" },
-      { key: "D", text: "The faster vehicle" },
-    ],
-    correctAnswer: "C",
-    explanation: "Where crossroads are unmarked, no one has priority — proceed with caution.",
-    imageUrl: null,
-    category: "right-of-way",
-  },
-  {
-    id: "q_mock_05",
-    _id: "q_mock_05",
-    questionText: "You are driving behind a large goods vehicle. Why should you keep well back?",
-    options: [
-      { key: "A", text: "To help the driver see you in their mirrors" },
-      { key: "B", text: "To give yourself a better view of the road ahead" },
-      { key: "C", text: "To stay out of their wind shadow" },
-      { key: "D", text: "Both A and B" },
-    ],
-    correctAnswer: "D",
-    explanation: "Staying well back improves your forward vision and keeps you in the driver's mirrors.",
-    imageUrl: null,
-    category: "hazards",
-  },
-];
+const mockQuestions = [];
 
 const mockAttempts = new Map();
 
-function createAttempt({ userId, testType = "full", topicKey }) {
+function createAttempt({ userId, testType = "full", topicKey, customQuestions }) {
   const attemptId = "att_" + Math.random().toString(36).substring(2, 10);
 
   const countMap = { full: 50, quick: 15, topic: 20, simulator: 50 };
@@ -95,10 +19,9 @@ function createAttempt({ userId, testType = "full", topicKey }) {
 
   const timeLimitEndsAt = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
 
-  const allAvailable = [
-    ...(mockPractice.mockQuestions || []),
-    ...mockQuestions,
-  ];
+  const allAvailable = (customQuestions && customQuestions.length > 0)
+    ? customQuestions
+    : (mockPractice.mockQuestions || []);
   let pool = allAvailable;
   if (topicKey) {
     const keyLower = topicKey.toLowerCase().replace(/[-_]/g, " ");

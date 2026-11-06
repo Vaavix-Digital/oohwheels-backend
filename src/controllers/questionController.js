@@ -106,6 +106,32 @@ exports.getCategories = async (req, res, next) => {
 exports.getRandomQuestions = async (req, res, next) => {
   try {
     const { count = 10 } = req.query;
+
+    if (neon.isNeonConfigured()) {
+      try {
+        const dbRes = await neon.query(
+          "SELECT * FROM questions WHERE is_published = TRUE ORDER BY RANDOM() LIMIT $1",
+          [parseInt(count)]
+        );
+        if (dbRes.rows.length > 0) {
+          const selected = dbRes.rows.map((r) => ({
+            id: r.id,
+            _id: r.id,
+            questionText: r.question_text,
+            options: typeof r.options === "string" ? JSON.parse(r.options) : r.options,
+            category: r.category,
+            difficulty: r.difficulty,
+            imageUrl: r.image_url,
+            videoUrl: r.video_url,
+            videoThumbnailUrl: r.video_thumbnail_url,
+            hasVideo: r.has_video,
+            explanation: r.explanation,
+          }));
+          return res.status(200).json({ success: true, data: selected });
+        }
+      } catch (e) {}
+    }
+
     const shuffled = [...mockPractice.mockQuestions].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, Math.min(parseInt(count), 100)).map(({ correctAnswer, ...q }) => q);
     res.status(200).json({ success: true, data: selected });
@@ -117,6 +143,31 @@ exports.getRandomQuestions = async (req, res, next) => {
 // ─── GET /api/v1/questions/:id ────────────────────────────────────────────────
 exports.getQuestion = async (req, res, next) => {
   try {
+    if (neon.isNeonConfigured()) {
+      try {
+        const dbRes = await neon.query("SELECT * FROM questions WHERE id = $1", [req.params.id]);
+        if (dbRes.rows.length > 0) {
+          const r = dbRes.rows[0];
+          return res.status(200).json({
+            success: true,
+            data: {
+              id: r.id,
+              _id: r.id,
+              questionText: r.question_text,
+              options: typeof r.options === "string" ? JSON.parse(r.options) : r.options,
+              category: r.category,
+              difficulty: r.difficulty,
+              imageUrl: r.image_url,
+              videoUrl: r.video_url,
+              videoThumbnailUrl: r.video_thumbnail_url,
+              hasVideo: r.has_video,
+              explanation: r.explanation,
+            },
+          });
+        }
+      } catch (e) {}
+    }
+
     const q = mockPractice.mockQuestions.find((item) => (item.id || item._id) === req.params.id);
     if (!q) {
       return res.status(404).json({ success: false, message: "Question not found." });
