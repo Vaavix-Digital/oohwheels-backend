@@ -1,7 +1,14 @@
 // In-memory mock data store for Practice section
 // Enables zero-database instant testing for Flutter devs and Postman
+let pdfQuestions = [];
+try {
+  pdfQuestions = require("../data/driving_theory_100.json");
+} catch (e) {
+  pdfQuestions = [];
+}
 
 const mockQuestions = [
+  ...(Array.isArray(pdfQuestions) && pdfQuestions.length > 0 ? pdfQuestions : []),
   {
     _id: "q_road_signs_01",
     id: "q_road_signs_01",
@@ -66,13 +73,97 @@ const mockQuestions = [
     category: "Road Signs",
     difficulty: "easy",
   },
+  {
+    _id: "q_safety_01",
+    id: "q_safety_01",
+    questionText: "What should you do when approaching a zebra crossing?",
+    options: [
+      { key: "A", text: "Sound your horn to alert pedestrians waiting to cross" },
+      { key: "B", text: "Be prepared to slow down and stop for pedestrians" },
+      { key: "C", text: "Accelerate quickly to clear the crossing" },
+      { key: "D", text: "Only stop if pedestrians are already in your lane" },
+    ],
+    correctAnswer: "B",
+    explanation: "As you approach a zebra crossing, look out for pedestrians waiting to cross and be ready to slow down and stop.",
+    imageUrl: "https://assets.oohwheels.app/signs/zebra-crossing.png",
+    category: "Vehicle Safety",
+    difficulty: "easy",
+  },
+  {
+    _id: "q_safety_02",
+    id: "q_safety_02",
+    questionText: "What is the minimum legal tyre tread depth for cars in the UK?",
+    options: [
+      { key: "A", text: "1.0 mm across the entire tyre" },
+      { key: "B", text: "1.6 mm across the central three-quarters" },
+      { key: "C", text: "2.5 mm across the outer edge" },
+      { key: "D", text: "3.0 mm across the central groove" },
+    ],
+    correctAnswer: "B",
+    explanation: "The legal minimum tread depth for cars in the UK is 1.6 mm across the central three-quarters of the breadth of the tyre and around the entire outer circumference.",
+    imageUrl: "https://assets.oohwheels.app/signs/tyre-tread.png",
+    category: "Vehicle Safety",
+    difficulty: "easy",
+  },
+  {
+    _id: "q_alert_01",
+    id: "q_alert_01",
+    questionText: "You are driving behind a large goods vehicle. Why should you keep well back?",
+    options: [
+      { key: "A", text: "To help the driver see you in their mirrors and give you a better view ahead" },
+      { key: "B", text: "To save fuel by reducing wind drag" },
+      { key: "C", text: "To allow cars behind you to overtake quickly" },
+      { key: "D", text: "To avoid gravel chips during dry weather" },
+    ],
+    correctAnswer: "A",
+    explanation: "Keeping well back improves your forward vision and ensures you remain visible in the driver's exterior mirrors.",
+    imageUrl: null,
+    category: "Alertness & Observation",
+    difficulty: "medium",
+  },
+  {
+    _id: "q_speed_01",
+    id: "q_speed_01",
+    questionText: "What is the national speed limit on a single carriageway for cars in Great Britain?",
+    options: [
+      { key: "A", text: "50 mph" },
+      { key: "B", text: "60 mph" },
+      { key: "C", text: "70 mph" },
+      { key: "D", text: "80 mph" },
+    ],
+    correctAnswer: "B",
+    explanation: "The national speed limit for cars and motorcycles on a single carriageway is 60 mph unless signs indicate otherwise.",
+    imageUrl: null,
+    category: "Speed Limits",
+    difficulty: "easy",
+  },
+  {
+    _id: "q_priority_01",
+    id: "q_priority_01",
+    questionText: "At a crossroads where no road is marked as priority, who has the right of way?",
+    options: [
+      { key: "A", text: "Traffic coming from the right" },
+      { key: "B", text: "Traffic on the wider road" },
+      { key: "C", text: "No one has automatic priority" },
+      { key: "D", text: "The faster-moving vehicle" },
+    ],
+    correctAnswer: "C",
+    explanation: "At an unmarked crossroads, no one has automatic priority. All drivers must approach with caution and prepare to stop.",
+    imageUrl: null,
+    category: "Right of Way",
+    difficulty: "medium",
+  },
 ];
 
 const mockFlashSigns = [
-  { id: "sign_01", title: "Maximum Speed Limit (30 mph)", meaning: "You must not exceed 30 mph.", category: "Order", shape: "circle", imageUrl: "https://assets.oohwheels.app/signs/speed-30.png" },
-  { id: "sign_02", title: "Hump Bridge", meaning: "Approaching a hump bridge, reduce speed.", category: "Warning", shape: "triangle", imageUrl: "https://assets.oohwheels.app/signs/hump-bridge.png" },
-  { id: "sign_03", title: "Give Way", meaning: "Give way to traffic on major road.", category: "Order", shape: "inverted-triangle", imageUrl: "https://assets.oohwheels.app/signs/give-way.png" },
-  { id: "sign_04", title: "No Entry", meaning: "No entry for vehicular traffic.", category: "Prohibitory", shape: "circle", imageUrl: "https://assets.oohwheels.app/signs/no-entry.png" },
+  { id: "sign_01", title: "Stop and Give Way", meaning: "You MUST stop before the solid white line and give way to traffic on the main road.", category: "Prohibition", shape: "octagon", imageUrl: "https://assets.oohwheels.app/signs/stop.png" },
+  { id: "sign_02", title: "No Entry for Vehicular Traffic", meaning: "No vehicles allowed to enter this road or slipway under any circumstances.", category: "Prohibition", shape: "circle", imageUrl: "https://assets.oohwheels.app/signs/no-entry.png" },
+  { id: "sign_03", title: "Maximum Speed Limit (30 mph)", meaning: "Maximum permitted speed is 30 mph unless subsequent signs indicate otherwise.", category: "Prohibition", shape: "circle", imageUrl: "https://assets.oohwheels.app/signs/speed-30.png" },
+  { id: "sign_04", title: "Hump Bridge Ahead", meaning: "Approaching a hump bridge, reduce speed and beware of oncoming traffic in the middle of the road.", category: "Warning", shape: "triangle", imageUrl: "https://assets.oohwheels.app/signs/hump-bridge.png" },
+  { id: "sign_05", title: "Give Way to Traffic on Major Road", meaning: "Give way to traffic on the major road before proceeding.", category: "Prohibition", shape: "inverted-triangle", imageUrl: "https://assets.oohwheels.app/signs/give-way.png" },
+  { id: "sign_06", title: "Turn Left Ahead (Mandatory)", meaning: "Vehicles must turn left ahead at the junction.", category: "Mandatory", shape: "circle", imageUrl: "https://assets.oohwheels.app/signs/turn-left.png" },
+  { id: "sign_07", title: "Mini-Roundabout Ahead", meaning: "Approaching a mini-roundabout, give way to traffic approaching from your right.", category: "Mandatory", shape: "circle", imageUrl: "https://assets.oohwheels.app/signs/mini-roundabout.png" },
+  { id: "sign_08", title: "Hospital with Accident and Emergency Ahead", meaning: "Directs drivers to hospital with 24-hour urgent care and emergency facilities.", category: "Information", shape: "rectangle", imageUrl: "https://assets.oohwheels.app/signs/hospital.png" },
 ];
 
 const mockVideos = [
@@ -217,13 +308,33 @@ module.exports = {
     return topic;
   },
   getQuestionsForTopic(topicKey, count = 10) {
-    const list = mockQuestions.slice(0, Number(count) || 10);
+    let list = mockQuestions;
+    if (topicKey) {
+      const normalizedKey = topicKey.toLowerCase().replace(/[-_]/g, " ");
+      const filtered = mockQuestions.filter((q) => {
+        const cat = (q.category || "").toLowerCase().replace(/[-_]/g, " ");
+        return cat.includes(normalizedKey) || normalizedKey.includes(cat);
+      });
+      if (filtered.length > 0) list = filtered;
+    }
+    const sliced = list.slice(0, Number(count) || 10);
     // Strip correct answers for test-taking
-    return list.map(({ correctAnswer, ...q }) => q);
+    return sliced.map(({ correctAnswer, ...q }) => q);
   },
   createPracticeSession({ userId, topicKey, questionCount, instantFeedback, includeVideos }) {
     const sessionId = "prac_sess_" + Math.random().toString(16).substring(2, 10);
-    const questions = mockQuestions.slice(0, Number(questionCount) || 4);
+    let matched = mockQuestions;
+    if (topicKey) {
+      const normalizedKey = topicKey.toLowerCase().replace(/[-_]/g, " ");
+      const filtered = mockQuestions.filter((q) => {
+        const cat = (q.category || "").toLowerCase().replace(/[-_]/g, " ");
+        return cat.includes(normalizedKey) || normalizedKey.includes(cat);
+      });
+      if (filtered.length > 0) matched = filtered;
+    }
+    const questions = matched.slice(0, Number(questionCount) || 4);
+
+    const topic = mockTopicsList.find((t) => t.key === topicKey) || mockTopicsList[0];
 
     const session = {
       _id: sessionId,

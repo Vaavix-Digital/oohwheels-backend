@@ -585,15 +585,24 @@ exports.submitDailyChallenge = async (req, res, next) => {
 };
 
 async function getTopicsForUser(user, filter = "all") {
+  const countFor = (key, defaultCount) => {
+    const norm = key.replace(/[-_]/g, " ");
+    const dynamicCount = (mockPractice.mockQuestions || []).filter((q) => {
+      const cat = (q.category || "").toLowerCase().replace(/[-_]/g, " ");
+      return cat.includes(norm) || norm.includes(cat);
+    }).length;
+    return dynamicCount > 0 ? dynamicCount : defaultCount;
+  };
+
   let allTopics = [
-    { key: "road-signs", name: "Road Signs", accuracy: 88, totalQuestions: 64, status: "mastered", indicatorColor: "#00C853", barColor: "#00C853" },
-    { key: "right-of-way", name: "Right of Way", accuracy: 72, totalQuestions: 48, status: "good", indicatorColor: "#3D82F6", barColor: "#3D82F6" },
-    { key: "speed-limits", name: "Speed Limits", accuracy: 65, totalQuestions: 32, status: "good", indicatorColor: "#3D82F6", barColor: "#3D82F6" },
-    { key: "hazards", name: "Hazards", accuracy: 48, totalQuestions: 56, status: "weak", indicatorColor: "#FF5252", barColor: "#FF5252" },
-    { key: "parking", name: "Parking", accuracy: 80, totalQuestions: 24, status: "mastered", indicatorColor: "#00C853", barColor: "#00C853" },
-    { key: "motorways", name: "Motorways", accuracy: 60, totalQuestions: 36, status: "good", indicatorColor: "#3D82F6", barColor: "#3D82F6" },
-    { key: "vehicle-safety", name: "Vehicle Safety", accuracy: 40, totalQuestions: 28, status: "weak", indicatorColor: "#FF5252", barColor: "#FF5252" },
-    { key: "rules-of-region", name: "Rules of the Region", accuracy: 55, totalQuestions: 12, status: "weak", indicatorColor: "#FF8A00", barColor: "#FF8A00" },
+    { key: "road-signs", name: "Road Signs", accuracy: 88, totalQuestions: countFor("road-signs", 64), status: "mastered", indicatorColor: "#00C853", barColor: "#00C853" },
+    { key: "right-of-way", name: "Right of Way", accuracy: 72, totalQuestions: countFor("right-of-way", 48), status: "good", indicatorColor: "#3D82F6", barColor: "#3D82F6" },
+    { key: "speed-limits", name: "Speed Limits", accuracy: 65, totalQuestions: countFor("speed-limits", 32), status: "good", indicatorColor: "#3D82F6", barColor: "#3D82F6" },
+    { key: "hazards", name: "Hazards", accuracy: 48, totalQuestions: countFor("hazards", 56), status: "weak", indicatorColor: "#FF5252", barColor: "#FF5252" },
+    { key: "parking", name: "Parking", accuracy: 80, totalQuestions: countFor("parking", 24), status: "mastered", indicatorColor: "#00C853", barColor: "#00C853" },
+    { key: "motorways", name: "Motorways", accuracy: 60, totalQuestions: countFor("motorways", 36), status: "good", indicatorColor: "#3D82F6", barColor: "#3D82F6" },
+    { key: "vehicle-safety", name: "Vehicle Safety", accuracy: 40, totalQuestions: countFor("vehicle-safety", 28), status: "weak", indicatorColor: "#FF5252", barColor: "#FF5252" },
+    { key: "rules-of-region", name: "Rules of the Region", accuracy: 55, totalQuestions: countFor("rules-of-region", 12), status: "weak", indicatorColor: "#FF8A00", barColor: "#FF8A00" },
   ];
 
   if (filter === "weak") {

@@ -8,7 +8,12 @@ exports.getQuestions = async (req, res, next) => {
     let questions = mockPractice.mockQuestions || [];
 
     if (category) {
-      questions = questions.filter((q) => q.category && q.category.toLowerCase() === category.toLowerCase());
+      const catNorm = category.toLowerCase().replace(/[-_]/g, " ").trim();
+      questions = questions.filter((q) => {
+        if (!q.category) return false;
+        const qCatNorm = q.category.toLowerCase().replace(/[-_]/g, " ").trim();
+        return qCatNorm === catNorm || qCatNorm.includes(catNorm) || catNorm.includes(qCatNorm);
+      });
     }
     if (difficulty) {
       questions = questions.filter((q) => q.difficulty && q.difficulty.toLowerCase() === difficulty.toLowerCase());
@@ -36,8 +41,26 @@ exports.getQuestions = async (req, res, next) => {
 // ─── GET /api/v1/questions/categories ────────────────────────────────────────
 exports.getCategories = async (req, res, next) => {
   try {
-    const categories = ["Road Signs", "Right of Way", "Rules of the Road", "Hazards & Safety", "Speed Limits"];
-    res.status(200).json({ success: true, data: categories });
+    const categories = [
+      "Road Signs",
+      "Right of Way",
+      "Speed Limits",
+      "Hazards",
+      "Parking",
+      "Motorways",
+      "Vehicle Safety",
+      "Rules of the Region",
+      "Alertness & Observation",
+      "Attitude",
+      "Safety Margins",
+      "Vulnerable Road Users",
+      "Other Types of Vehicle",
+      "Road Conditions & Handling",
+      "Essential Documents",
+      "Incidents & Emergencies",
+      "Vehicle Loading"
+    ];
+    res.status(200).json({ success: true, total: categories.length, data: categories });
   } catch (error) {
     next(error);
   }

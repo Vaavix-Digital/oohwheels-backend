@@ -160,14 +160,15 @@ exports.getDashboardStats = async (req, res, next) => {
           examFormat: "50 questions · 57 min · pass 43",
         },
         categoryBreakdown: [
-          { category: "Road Signs", count: 64, accuracyAvg: 72 },
-          { category: "Right of Way", count: 48, accuracyAvg: 58 },
-          { category: "Speed Limits", count: 32, accuracyAvg: 85 },
-          { category: "Hazards", count: 56, accuracyAvg: 41 },
-          { category: "Parking", count: 24, accuracyAvg: 90 },
-          { category: "Motorways", count: 36, accuracyAvg: 33 },
-          { category: "Vehicle Safety", count: 28, accuracyAvg: 67 },
-          { category: "Rules of the Region", count: 12, accuracyAvg: 55 },
+          { category: "Road Signs", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("road signs")).length || 64, accuracyAvg: 72 },
+          { category: "Right of Way", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("right of way")).length || 48, accuracyAvg: 58 },
+          { category: "Speed Limits", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("speed limit")).length || 32, accuracyAvg: 85 },
+          { category: "Hazards", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("hazard")).length || 56, accuracyAvg: 41 },
+          { category: "Parking", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("parking")).length || 24, accuracyAvg: 90 },
+          { category: "Motorways", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("motorway")).length || 36, accuracyAvg: 33 },
+          { category: "Vehicle Safety", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("vehicle safety")).length || 28, accuracyAvg: 67 },
+          { category: "Rules of the Region", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("rules of the region")).length || 12, accuracyAvg: 55 },
+          { category: "Alertness & Observation", count: mockPractice.mockQuestions.filter((q) => (q.category || "").toLowerCase().includes("alertness")).length || 15, accuracyAvg: 70 },
         ],
         recentActivity: [
           { type: "exam_pass", text: "Alex Driver passed Full Mock Test with 45/50", time: "10 mins ago" },
@@ -188,9 +189,13 @@ exports.getQuestions = async (req, res, next) => {
 
     let list = [...mockPractice.mockQuestions];
 
-    if (category) {
-      const catLower = category.toLowerCase();
-      list = list.filter((q) => (q.category || "").toLowerCase() === catLower);
+    if (category && category !== "All Categories") {
+      const catNorm = category.toLowerCase().replace(/[-_]/g, " ").trim();
+      list = list.filter((q) => {
+        if (!q.category) return false;
+        const qCatNorm = q.category.toLowerCase().replace(/[-_]/g, " ").trim();
+        return qCatNorm === catNorm || qCatNorm.includes(catNorm) || catNorm.includes(qCatNorm);
+      });
     }
 
     if (difficulty) {
@@ -266,6 +271,169 @@ exports.createQuestion = async (req, res, next) => {
       success: true,
       message: "Driving question added to DVSA question bank successfully.",
       data: newQ,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Bulk Import Questions (JSON array) ──────────────────────────────────────
+exports.bulkImportQuestions = async (req, res, next) => {
+  try {
+    const questions = req.body.questions || req.body;
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide an array of question objects under 'questions'.",
+      });
+    }
+
+    const added = [];
+    for (const q of questions) {
+      if (q.questionText) {
+        const item = mockPractice.addQuestion({
+          questionText: q.questionText,
+          options: q.options,
+          correctAnswer: q.correctAnswer || "A",
+          explanation: q.explanation || "",
+          category: q.category || q.topic || "Road Signs",
+          difficulty: q.difficulty || "easy",
+          imageUrl: q.imageUrl || null,
+        });
+        added.push(item);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully imported ${added.length} questions into the DVSA bank.`,
+      totalImported: added.length,
+      currentTotalInBank: mockPractice.mockQuestions.length,
+      data: added,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Import from Text (PDF-extracted raw text parser) ─────────────────────────
+exports.importTextQuestions = async (req, res, next) => {
+  try {
+    const rawText = req.body.text || req.body.rawText || "";
+    if (!rawText.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide the text content extracted from the PDF under 'text'.",
+      });
+    }
+
+    const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const parsedQuestions = [];
+    let currentTopic = "Road Signs";
+    let currentQ = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Check for topic header: "Topic X: Name"
+      const topicMatch = line.match(/^Topic\s+\d+:\s*(.+)$/i);
+      if (topicMatch) {
+        currentTopic = topicMatch[1].trim();
+        continue;
+      }
+
+      // Check for question start: "1. Question text"
+      const qMatch = line.match(/^(\d+)\.\s+(.+)$/);
+      if (qMatch && !line.startsWith("Answer:")) {
+        if (currentQ && currentQ.options.length >= 2 && currentQ.correctAnswer) {
+          parsedQuestions.push(currentQ);
+        }
+        currentQ = {
+          questionNumber: parseInt(qMatch[1]),
+          questionText: qMatch[2],
+          category: currentTopic,
+          options: [],
+          correctAnswer: "A",
+          explanation: "",
+          difficulty: "easy",
+        };
+        continue;
+      }
+
+      // Check for Option: "A. Option text"
+      const optMatch = line.match(/^([A-D])\.\s+(.+)$/);
+      if (optMatch && currentQ) {
+        currentQ.options.push({
+          key: optMatch[1].toUpperCase(),
+          text: optMatch[2].trim(),
+        });
+        continue;
+      }
+
+      // Check for Answer: "Answer: C. Explanation"
+      const ansMatch = line.match(/^Answer:\s*([A-D])\.?\s*(.*)$/i);
+      if (ansMatch && currentQ) {
+        currentQ.correctAnswer = ansMatch[1].toUpperCase();
+        currentQ.explanation = ansMatch[2].trim();
+        continue;
+      }
+    }
+
+    // Push the final question
+    if (currentQ && currentQ.options.length >= 2) {
+      parsedQuestions.push(currentQ);
+    }
+
+    if (parsedQuestions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Could not detect structured questions. Format must be '1. Question', 'A. ...', 'Answer: X. ...'",
+      });
+    }
+
+    // Add all parsed questions to store
+    const added = parsedQuestions.map((q) => mockPractice.addQuestion(q));
+
+    res.status(201).json({
+      success: true,
+      message: `Parsed and imported ${added.length} questions from text successfully!`,
+      totalImported: added.length,
+      currentTotalInBank: mockPractice.mockQuestions.length,
+      data: added,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Preloaded 100-Pack Reset / Sync Endpoint ────────────────────────────────
+exports.load100PackQuestions = async (req, res, next) => {
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const jsonPath = path.join(__dirname, "..", "data", "driving_theory_100.json");
+
+    if (!fs.existsSync(jsonPath)) {
+      return res.status(404).json({ success: false, message: "100-question pack file not found." });
+    }
+
+    const fileContent = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    let addedCount = 0;
+
+    fileContent.forEach((q) => {
+      const exists = mockPractice.mockQuestions.some(
+        (x) => x._id === q._id || x.questionText === q.questionText
+      );
+      if (!exists) {
+        mockPractice.mockQuestions.push(q);
+        addedCount++;
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Synchronized 100-question pack. (${addedCount} newly added)`,
+      totalInBank: mockPractice.mockQuestions.length,
     });
   } catch (error) {
     next(error);

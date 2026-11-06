@@ -13,10 +13,13 @@ router.use(protect, restrictTo("admin"));
 // 1. Dashboard Overview
 router.get("/dashboard", adminController.getDashboardStats);
 
-// 2. Questions Management (DVSA Theory Bank CRUD)
+// 2. Questions Management (DVSA Theory Bank CRUD & Bulk PDF/Text Import)
 router.get("/questions", adminController.getQuestions);
 router.get("/questions/:id", adminController.getQuestionById);
 router.post("/questions", adminController.createQuestion);
+router.post("/questions/bulk-import", adminController.bulkImportQuestions);
+router.post("/questions/import-text", adminController.importTextQuestions);
+router.post("/questions/load-100-pack", adminController.load100PackQuestions);
 router.put("/questions/:id", adminController.updateQuestion);
 router.delete("/questions/:id", adminController.deleteQuestion);
 
